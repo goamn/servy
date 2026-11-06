@@ -1,6 +1,7 @@
-<Window x:Class="Servy.Manager.Views.MainWindow"
+<ui:FluentWindow x:Class="Servy.Manager.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:resx="clr-namespace:Servy.Manager.Resources"
         xmlns:views="clr-namespace:Servy.Manager.Views"
         xmlns:vm="clr-namespace:Servy.Manager.ViewModels"
@@ -10,6 +11,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         mc:Ignorable="d"
         Title="Servy Manager"
+        ExtendsContentIntoTitleBar="True"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource AppTextBrush}"
+        FontFamily="Segoe UI"
+        FontSize="13"
         Width="1000"
         MinWidth="940"
         Height="600"
@@ -30,60 +36,128 @@
     <managerConverters:CpuUsageConverter x:Key="CpuUsageConverter" />
     <managerConverters:RamUsageConverter x:Key="RamUsageConverter" />
     <converters:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+    <Style x:Key="ServicesColumnHeaderStyle"
+           TargetType="DataGridColumnHeader"
+           BasedOn="{StaticResource BaseServicesColumnHeaderStyle}">
+      <EventSetter Event="ContextMenuOpening" Handler="ServicesColumnHeader_ContextMenuOpening" />
+    </Style>
   </Window.Resources>
 
   <DockPanel>
-    <Menu DockPanel.Dock="Top"
-          Height="28"
-          AutomationProperties.Name="{x:Static resx:Strings.Automation_MainMenu_Name}"
-          AutomationProperties.AutomationId="MainMenu"
-          AutomationProperties.HelpText="{x:Static resx:Strings.Automation_MainMenu_HelpText}">
-      <MenuItem Header="{x:Static resx:Strings.Menu_Import}"
-                AutomationProperties.Name="{x:Static resx:Strings.Menu_Import}"
-                AutomationProperties.AutomationId="ImportMenu"
-                AutomationProperties.HelpText="{x:Static resx:Strings.Automation_ImportMenu_HelpText}">
-        <MenuItem Header="{x:Static resx:Strings.Menu_ImportXml}"
-                  Command="{Binding ImportXmlCommand}"
-                  AutomationProperties.Name="{x:Static resx:Strings.Menu_ImportXml}"
-                  AutomationProperties.AutomationId="ImportXmlMenuItem"
-                  AutomationProperties.HelpText="{x:Static resx:Strings.Automation_ImportXmlMenuItem_HelpText}" />
-        <MenuItem Header="{x:Static resx:Strings.Menu_ImportJson}"
-                  Command="{Binding ImportJsonCommand}"
-                  AutomationProperties.Name="{x:Static resx:Strings.Menu_ImportJson}"
-                  AutomationProperties.AutomationId="ImportJsonMenuItem"
-                  AutomationProperties.HelpText="{x:Static resx:Strings.Automation_ImportJsonMenuItem_HelpText}" />
-      </MenuItem>
+    <ui:TitleBar DockPanel.Dock="Top" Title="Servy Manager">
+      <ui:TitleBar.TrailingContent>
+        <ui:Button x:Name="ThemeToggleButton"
+                   Icon="{ui:SymbolIcon Symbol=WeatherMoon24}"
+                   Width="36"
+                   Height="32"
+                   Padding="0"
+                   Margin="0,0,8,0"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   ToolTip="Switch to dark mode"
+                   Click="ThemeToggleButton_Click"
+                   AutomationProperties.Name="Switch to dark mode"
+                   AutomationProperties.AutomationId="ThemeToggleButton">
+          <ui:Button.ContextMenu>
+            <ContextMenu>
+              <ui:MenuItem Header="Follow Windows theme" Click="FollowSystemTheme_Click" />
+            </ContextMenu>
+          </ui:Button.ContextMenu>
+        </ui:Button>
+      </ui:TitleBar.TrailingContent>
+    </ui:TitleBar>
+    <Border DockPanel.Dock="Top"
+            Height="36"
+            Background="{DynamicResource AppBackgroundBrush}"
+            BorderBrush="{DynamicResource AppBorderBrush}"
+            BorderThickness="0,0,0,1"
+            AutomationProperties.Name="{x:Static resx:Strings.Automation_MainMenu_Name}"
+            AutomationProperties.AutomationId="MainMenu"
+            AutomationProperties.HelpText="{x:Static resx:Strings.Automation_MainMenu_HelpText}">
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
+        <ui:Button Padding="10,4"
+                   Height="30"
+                   Margin="0,0,2,0"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   Foreground="{DynamicResource AppTextBrush}"
+                   PreviewMouseLeftButtonDown="MenuButton_PreviewMouseLeftButtonDown"
+                   AutomationProperties.Name="{x:Static resx:Strings.Menu_Import}"
+                   AutomationProperties.AutomationId="ImportMenu"
+                   AutomationProperties.HelpText="{x:Static resx:Strings.Automation_ImportMenu_HelpText}">
+          <ui:Button.ContextMenu>
+            <ContextMenu>
+              <ui:MenuItem Header="{x:Static resx:Strings.Menu_ImportXml}"
+                           Command="{Binding ImportXmlCommand}"
+                           AutomationProperties.Name="{x:Static resx:Strings.Menu_ImportXml}"
+                           AutomationProperties.AutomationId="ImportXmlMenuItem"
+                           AutomationProperties.HelpText="{x:Static resx:Strings.Automation_ImportXmlMenuItem_HelpText}" />
+              <ui:MenuItem Header="{x:Static resx:Strings.Menu_ImportJson}"
+                           Command="{Binding ImportJsonCommand}"
+                           AutomationProperties.Name="{x:Static resx:Strings.Menu_ImportJson}"
+                           AutomationProperties.AutomationId="ImportJsonMenuItem"
+                           AutomationProperties.HelpText="{x:Static resx:Strings.Automation_ImportJsonMenuItem_HelpText}" />
+            </ContextMenu>
+          </ui:Button.ContextMenu>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{x:Static resx:Strings.Menu_Import}" />
+            <TextBlock Text="▾" Margin="6,0,0,0" FontSize="11" VerticalAlignment="Center" />
+          </StackPanel>
+        </ui:Button>
 
-      <MenuItem Header="{x:Static resx:Strings.Menu_Config}"
-                Click="Menu_ConfigClick"
-                IsEnabled="{Binding IsConfiguratorEnabled}"
-                AutomationProperties.Name="{x:Static resx:Strings.Menu_Config}"
-                AutomationProperties.AutomationId="ConfigMenu"
-                AutomationProperties.HelpText="{x:Static resx:Strings.Automation_ConfigMenu_HelpText}" />
+        <ui:Button Content="{x:Static resx:Strings.Menu_Config}"
+                   Padding="10,4"
+                   Height="30"
+                   Margin="0,0,2,0"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   Foreground="{DynamicResource AppTextBrush}"
+                   Click="Menu_ConfigClick"
+                   IsEnabled="{Binding IsConfiguratorEnabled}"
+                   AutomationProperties.Name="{x:Static resx:Strings.Menu_Config}"
+                   AutomationProperties.AutomationId="ConfigMenu"
+                   AutomationProperties.HelpText="{x:Static resx:Strings.Automation_ConfigMenu_HelpText}" />
 
-      <MenuItem Header="{x:Static resx:Strings.Menu_Help}"
-                AutomationProperties.Name="{x:Static resx:Strings.Menu_Help}"
-                AutomationProperties.AutomationId="HelpMenu"
-                AutomationProperties.HelpText="{x:Static resx:Strings.Automation_HelpMenu_HelpText}">
-        <MenuItem Header="{x:Static resx:Strings.Menu_Doc}"
-                  Command="{Binding OpenDocumentationCommand}"
-                  AutomationProperties.Name="{x:Static resx:Strings.Menu_Doc}"
-                  AutomationProperties.AutomationId="DocMenuItem"
-                  AutomationProperties.HelpText="{x:Static resx:Strings.Automation_DocMenuItem_HelpText}" />
-        <MenuItem Header="{x:Static resx:Strings.Menu_CheckUpdates}"
-                  Command="{Binding CheckUpdatesCommand}"
-                  AutomationProperties.Name="{x:Static resx:Strings.Menu_CheckUpdates}"
-                  AutomationProperties.AutomationId="CheckUpdatesMenuItem"
-                  AutomationProperties.HelpText="{x:Static resx:Strings.Automation_CheckUpdatesMenuItem_HelpText}" />
-        <MenuItem Header="{x:Static resx:Strings.Menu_About}"
-                  Command="{Binding OpenAboutDialogCommand}"
-                  AutomationProperties.Name="{x:Static resx:Strings.Menu_About}"
-                  AutomationProperties.AutomationId="AboutMenuItem"
-                  AutomationProperties.HelpText="{x:Static resx:Strings.Automation_AboutMenuItem_HelpText}" />
-      </MenuItem>
-    </Menu>
+        <ui:Button Padding="10,4"
+                   Height="30"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   Foreground="{DynamicResource AppTextBrush}"
+                   PreviewMouseLeftButtonDown="MenuButton_PreviewMouseLeftButtonDown"
+                   AutomationProperties.Name="{x:Static resx:Strings.Menu_Help}"
+                   AutomationProperties.AutomationId="HelpMenu"
+                   AutomationProperties.HelpText="{x:Static resx:Strings.Automation_HelpMenu_HelpText}">
+          <ui:Button.ContextMenu>
+            <ContextMenu>
+              <ui:MenuItem Header="{x:Static resx:Strings.Menu_Doc}"
+                           Command="{Binding OpenDocumentationCommand}"
+                           AutomationProperties.Name="{x:Static resx:Strings.Menu_Doc}"
+                           AutomationProperties.AutomationId="DocMenuItem"
+                           AutomationProperties.HelpText="{x:Static resx:Strings.Automation_DocMenuItem_HelpText}" />
+              <ui:MenuItem Header="{x:Static resx:Strings.Menu_CheckUpdates}"
+                           Command="{Binding CheckUpdatesCommand}"
+                           AutomationProperties.Name="{x:Static resx:Strings.Menu_CheckUpdates}"
+                           AutomationProperties.AutomationId="CheckUpdatesMenuItem"
+                           AutomationProperties.HelpText="{x:Static resx:Strings.Automation_CheckUpdatesMenuItem_HelpText}" />
+              <ui:MenuItem Header="{x:Static resx:Strings.Menu_About}"
+                           Command="{Binding OpenAboutDialogCommand}"
+                           AutomationProperties.Name="{x:Static resx:Strings.Menu_About}"
+                           AutomationProperties.AutomationId="AboutMenuItem"
+                           AutomationProperties.HelpText="{x:Static resx:Strings.Automation_AboutMenuItem_HelpText}" />
+            </ContextMenu>
+          </ui:Button.ContextMenu>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{x:Static resx:Strings.Menu_Help}" />
+            <TextBlock Text="▾" Margin="6,0,0,0" FontSize="11" VerticalAlignment="Center" />
+          </StackPanel>
+        </ui:Button>
+      </StackPanel>
+    </Border>
 
-    <TabControl SelectionChanged="MainTabControl_SelectionChanged"
+    <TabControl Background="{DynamicResource AppBackgroundBrush}"
+                BorderThickness="0"
+                Padding="0"
+                SelectionChanged="MainTabControl_SelectionChanged"
                 AutomationProperties.Name="{x:Static resx:Strings.Automation_MainTabControl_Name}"
                 AutomationProperties.AutomationId="MainTabControl"
                 AutomationProperties.HelpText="{x:Static resx:Strings.Automation_MainTabControl_HelpText}">
@@ -93,56 +167,68 @@
                AutomationProperties.Name="{x:Static resx:Strings.Automation_MainTab_Name}"
                AutomationProperties.AutomationId="MainTab"
                AutomationProperties.HelpText="{x:Static resx:Strings.Automation_MainTab_HelpText}">
-        <Grid Margin="10">
+        <Grid Margin="16,10,16,12">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
-          <Grid Grid.Row="0"
-                Margin="0,0,0,10"
-                VerticalAlignment="Center"
-                Focusable="True"
-                FocusVisualStyle="{x:Null}">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+          <ui:Card Grid.Row="0"
+                   Margin="0,0,0,12"
+                   Padding="16,14">
+            <Grid VerticalAlignment="Center">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
 
-            <TextBox Grid.Column="0"
-                     Width="200"
-                     Height="24"
-                     Margin="0,0,5,0"
-                     VerticalContentAlignment="Center"
-                     SnapsToDevicePixels="False"
-                     UseLayoutRounding="False"
-                     TextOptions.TextFormattingMode="Display"
-                     TextOptions.TextRenderingMode="ClearType"
-                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                     AutomationProperties.Name="{x:Static resx:Strings.Automation_SearchTextBox_Name}"
-                     AutomationProperties.AutomationId="SearchTextBox"
-                     AutomationProperties.HelpText="{x:Static resx:Strings.Automation_SearchTextBox_HelpText}">
-              <TextBox.InputBindings>
-                <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
-              </TextBox.InputBindings>
-            </TextBox>
+              <StackPanel Grid.Column="0">
+                <ui:TextBlock Text="Services"
+                           FontSize="22"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource AppTextBrush}" />
+                <ui:TextBlock Margin="0,3,0,0"
+                           Text="Manage, monitor, and inspect your configured Windows services."
+                           Foreground="{DynamicResource AppMutedTextBrush}" />
+              </StackPanel>
 
-            <Button Grid.Column="1"
-                    Content="{Binding SearchButtonText}"
-                    Width="80"
-                    Height="24"
-                    Command="{Binding SearchCommand}"
-                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
-                    AutomationProperties.Name="{x:Static resx:Strings.Button_Search}"
-                    AutomationProperties.AutomationId="SearchButton"
-                    AutomationProperties.HelpText="{x:Static resx:Strings.Automation_SearchButton_HelpText}" />
-          </Grid>
+              <ui:TextBox Grid.Column="1"
+                       Width="220"
+                       Height="30"
+                       Margin="16,0,6,0"
+                       VerticalContentAlignment="Center"
+                       SnapsToDevicePixels="False"
+                       UseLayoutRounding="False"
+                       TextOptions.TextFormattingMode="Display"
+                       TextOptions.TextRenderingMode="ClearType"
+                       Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                       AutomationProperties.Name="{x:Static resx:Strings.Automation_SearchTextBox_Name}"
+                       AutomationProperties.AutomationId="SearchTextBox"
+                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_SearchTextBox_HelpText}">
+                <ui:TextBox.InputBindings>
+                  <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
+                </ui:TextBox.InputBindings>
+              </ui:TextBox>
 
-          <DataGrid x:Name="ServicesDataGrid"
-                    Grid.Row="1"
+              <ui:Button Grid.Column="2"
+                      Content="{Binding SearchButtonText}"
+                      Width="92"
+                      Height="30"
+                      Command="{Binding SearchCommand}"
+                      IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                      AutomationProperties.Name="{x:Static resx:Strings.Button_Search}"
+                      AutomationProperties.AutomationId="SearchButton"
+                      AutomationProperties.HelpText="{x:Static resx:Strings.Automation_SearchButton_HelpText}" />
+            </Grid>
+          </ui:Card>
+
+          <Grid Grid.Row="1"
+                x:Name="ServicesTableHost"
+                ClipToBounds="False">
+          <ui:DataGrid x:Name="ServicesDataGrid"
+                    Margin="0,0,160,0"
                     ItemsSource="{Binding ServicesView, IsAsync=True}"
                     VirtualizingStackPanel.IsVirtualizing="True"
                     VirtualizingStackPanel.VirtualizationMode="Recycling"
@@ -154,6 +240,7 @@
                     AutoGenerateColumns="False"
                     CanUserAddRows="False"
                     CanUserDeleteRows="False"
+                    CanUserResizeColumns="True"
                     CanUserResizeRows="False"
                     IsReadOnly="True"
                     SelectionUnit="FullRow"
@@ -161,62 +248,131 @@
                     AutomationProperties.Name="{x:Static resx:Strings.Automation_ServicesDataGrid_Name}"
                     AutomationProperties.AutomationId="ServicesDataGrid"
                     AutomationProperties.HelpText="{x:Static resx:Strings.Automation_ServicesDataGrid_HelpText}"
+                    Loaded="ServicesDataGrid_Loaded"
                     Style="{StaticResource DataGridSelectionColorsStyle}">
-            <DataGrid.ColumnHeaderStyle>
-              <Style TargetType="DataGridColumnHeader">
+            <ui:DataGrid.ColumnHeaderStyle>
+              <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ServicesColumnHeaderStyle}">
                 <EventSetter Event="PreviewMouseLeftButtonDown" Handler="ColumnHeader_PreviewMouseLeftButtonDown" />
               </Style>
-            </DataGrid.ColumnHeaderStyle>
+            </ui:DataGrid.ColumnHeaderStyle>
 
-            <DataGrid.RowStyle>
+            <ui:DataGrid.RowStyle>
               <Style TargetType="DataGridRow">
                 <Setter Property="Height" Value="32" />
-                <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
                 <Setter Property="IsSelected" Value="{Binding IsSelected}" />
+                <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown" />
 
                 <EventSetter Event="MouseDoubleClick" Handler="DataGridRow_MouseDoubleClick" />
 
+                <Setter Property="ContextMenu">
+                  <Setter.Value>
+                    <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                      <ContextMenu.Resources>
+                        <Style TargetType="ui:MenuItem">
+                          <Setter Property="Padding" Value="12,7" />
+                        </Style>
+                      </ContextMenu.Resources>
+                      <ui:MenuItem Header="{x:Static resx:Strings.Button_Start}"
+                                Command="{Binding StartCommand}"
+                                IsEnabled="{Binding IsInstalled}" />
+                      <ui:MenuItem Header="{x:Static resx:Strings.Button_Stop}"
+                                Command="{Binding StopCommand}"
+                                IsEnabled="{Binding IsInstalled}" />
+                      <ui:MenuItem Header="{x:Static resx:Strings.Button_Restart}"
+                                Command="{Binding RestartCommand}"
+                                IsEnabled="{Binding IsInstalled}" />
+                      <Separator />
+                      <ui:MenuItem Header="More actions">
+                        <ui:MenuItem Header="{x:Static resx:Strings.Button_Install}"
+                                  Command="{Binding InstallCommand}" />
+                        <ui:MenuItem Header="{x:Static resx:Strings.Button_Uninstall}"
+                                  Command="{Binding UninstallCommand}"
+                                  IsEnabled="{Binding IsInstalled}" />
+                        <ui:MenuItem Header="{x:Static resx:Strings.Button_Remove}"
+                                  Command="{Binding RemoveCommand}"
+                                  IsEnabled="{Binding IsInstalled, Converter={StaticResource InverseBooleanConverter}}" />
+                        <ui:MenuItem Header="{x:Static resx:Strings.Button_Config}"
+                                  Command="{Binding ConfigureCommand}"
+                                  IsEnabled="{Binding IsDesktopAppAvailable}" />
+                        <Separator />
+                        <ui:MenuItem Header="{x:Static resx:Strings.Button_ExportXML}"
+                                  Command="{Binding ExportXmlCommand}" />
+                        <ui:MenuItem Header="{x:Static resx:Strings.Button_ExportJSON}"
+                                  Command="{Binding ExportJsonCommand}" />
+                        <ui:MenuItem Header="{x:Static resx:Strings.Button_CopyPid}"
+                                  Command="{Binding CopyPidCommand}"
+                                  IsEnabled="{Binding IsPidEnabled}" />
+                      </ui:MenuItem>
+                    </ContextMenu>
+                  </Setter.Value>
+                </Setter>
+
                 <Style.Triggers>
                   <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource RowHoverBrush}" />
+                    <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
                   </Trigger>
                   <DataTrigger Binding="{Binding IsChecked}" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" />
+                    <Setter Property="Background" Value="{DynamicResource RowSelectedBrush}" />
                   </DataTrigger>
                 </Style.Triggers>
               </Style>
-            </DataGrid.RowStyle>
+            </ui:DataGrid.RowStyle>
 
-            <DataGrid.CellStyle>
+            <ui:DataGrid.CellStyle>
               <Style TargetType="DataGridCell">
                 <EventSetter Event="PreviewMouseLeftButtonDown" Handler="CheckBoxCell_PreviewMouseLeftButtonDown" />
               </Style>
-            </DataGrid.CellStyle>
+            </ui:DataGrid.CellStyle>
 
-            <DataGrid.Columns>
-              <DataGridTemplateColumn Width="32"
-                                      MinWidth="32"
+            <ui:DataGrid.Columns>
+              <DataGridTemplateColumn Width="52"
+                                      MinWidth="52"
                                       CanUserResize="False"
                                       CanUserReorder="False">
                 <DataGridTemplateColumn.HeaderStyle>
-                  <Style TargetType="DataGridColumnHeader">
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ServicesColumnHeaderStyle}">
                     <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_SelectAllColumnHeader_Name}" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
                   </Style>
                 </DataGridTemplateColumn.HeaderStyle>
+                <DataGridTemplateColumn.CellStyle>
+                  <Style TargetType="DataGridCell">
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="ClipToBounds" Value="False" />
+                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                    <EventSetter Event="PreviewMouseLeftButtonDown" Handler="CheckBoxCell_PreviewMouseLeftButtonDown" />
+                  </Style>
+                </DataGridTemplateColumn.CellStyle>
                 <DataGridTemplateColumn.Header>
-                  <CheckBox IsThreeState="True"
-                            Margin="3,0,0,0"
-                            IsChecked="{Binding DataContext.SelectAll, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                            AutomationProperties.Name="{x:Static resx:Strings.Automation_SelectAllServicesCheckBox_Name}"
-                            AutomationProperties.AutomationId="SelectAllServicesCheckBox"
-                            AutomationProperties.HelpText="{x:Static resx:Strings.Automation_SelectAllServicesCheckBox_HelpText}" />
+                <CheckBox IsThreeState="True"
+                          IsChecked="{Binding DataContext.SelectAll, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                          Width="18"
+                          Height="18"
+                          Margin="0"
+                          Padding="0"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          SnapsToDevicePixels="True"
+                          AutomationProperties.Name="{x:Static resx:Strings.Automation_SelectAllServicesCheckBox_Name}"
+                          AutomationProperties.AutomationId="SelectAllServicesCheckBox"
+                          AutomationProperties.HelpText="{x:Static resx:Strings.Automation_SelectAllServicesCheckBox_HelpText}" />
                 </DataGridTemplateColumn.Header>
 
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
                     <CheckBox IsChecked="{Binding IsChecked}"
+                              Width="18"
+                              Height="18"
+                              Margin="0"
+                              Padding="0"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center"
+                              SnapsToDevicePixels="True"
                               AutomationProperties.Name="{x:Static resx:Strings.Automation_SelectServiceCheckBox_Name}"
                               AutomationProperties.AutomationId="SelectServiceCheckBox"
                               AutomationProperties.HelpText="{x:Static resx:Strings.Automation_SelectServiceCheckBox_HelpText}" />
@@ -230,13 +386,13 @@
                                       CanUserReorder="False"
                                       SortMemberPath="Name">
                 <DataGridTemplateColumn.HeaderStyle>
-                  <Style TargetType="DataGridColumnHeader">
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ServicesColumnHeaderStyle}">
                     <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_NameColumnHeader_Name}" />
                   </Style>
                 </DataGridTemplateColumn.HeaderStyle>
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding Name}"
+                    <ui:TextBlock Text="{Binding Name}"
                                ToolTip="{Binding Name}"
                                VerticalAlignment="Center"
                                Margin="5,0,0,0"
@@ -256,13 +412,13 @@
                                       CanUserReorder="False"
                                       SortMemberPath="Description">
                 <DataGridTemplateColumn.HeaderStyle>
-                  <Style TargetType="DataGridColumnHeader">
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ServicesColumnHeaderStyle}">
                     <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_DescriptionColumnHeader_Name}" />
                   </Style>
                 </DataGridTemplateColumn.HeaderStyle>
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding Description}"
+                    <ui:TextBlock Text="{Binding Description}"
                                ToolTip="{Binding Description}"
                                VerticalAlignment="Center"
                                Margin="5,0,5,0"
@@ -280,13 +436,13 @@
                                       CanUserReorder="False"
                                       SortMemberPath="Status">
                 <DataGridTemplateColumn.HeaderStyle>
-                  <Style TargetType="DataGridColumnHeader">
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ServicesColumnHeaderStyle}">
                     <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_StatusColumnHeader_Name}" />
                   </Style>
                 </DataGridTemplateColumn.HeaderStyle>
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding Status, Converter={StaticResource StatusConverter}}"
+                    <ui:TextBlock Text="{Binding Status, Converter={StaticResource StatusConverter}}"
                                VerticalAlignment="Center"
                                Margin="5,0,0,0"
                                AutomationProperties.Name="{Binding Status, Converter={StaticResource StatusConverter}}"
@@ -300,13 +456,13 @@
                                       CanUserReorder="False"
                                       SortMemberPath="StartupType">
                 <DataGridTemplateColumn.HeaderStyle>
-                  <Style TargetType="DataGridColumnHeader">
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ServicesColumnHeaderStyle}">
                     <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_StartupTypeColumnHeader_Name}" />
                   </Style>
                 </DataGridTemplateColumn.HeaderStyle>
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding StartupType, Converter={StaticResource StartupTypeConverter}}"
+                    <ui:TextBlock Text="{Binding StartupType, Converter={StaticResource StartupTypeConverter}}"
                                VerticalAlignment="Center"
                                Margin="5,0,0,0"
                                AutomationProperties.Name="{Binding StartupType, Converter={StaticResource StartupTypeConverter}}"
@@ -321,13 +477,13 @@
                                       CanUserReorder="False"
                                       SortMemberPath="LogOnAs">
                 <DataGridTemplateColumn.HeaderStyle>
-                  <Style TargetType="DataGridColumnHeader">
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ServicesColumnHeaderStyle}">
                     <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_LogOnAsColumnHeader_Name}" />
                   </Style>
                 </DataGridTemplateColumn.HeaderStyle>
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding LogOnAs}"
+                    <ui:TextBlock Text="{Binding LogOnAs}"
                                ToolTip="{Binding LogOnAs}"
                                VerticalAlignment="Center"
                                Margin="5,0,0,0"
@@ -346,13 +502,13 @@
                                       CanUserReorder="False"
                                       SortMemberPath="Pid">
                 <DataGridTemplateColumn.HeaderStyle>
-                  <Style TargetType="DataGridColumnHeader">
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ServicesColumnHeaderStyle}">
                     <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_PidColumnHeader_Name}" />
                   </Style>
                 </DataGridTemplateColumn.HeaderStyle>
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding Pid, Converter={StaticResource PidConverter}}"
+                    <ui:TextBlock Text="{Binding Pid, Converter={StaticResource PidConverter}}"
                                VerticalAlignment="Center"
                                Margin="5,0,0,0"
                                AutomationProperties.Name="{Binding Pid, Converter={StaticResource PidConverter}}"
@@ -366,13 +522,13 @@
                                       CanUserReorder="False"
                                       SortMemberPath="CpuUsage">
                 <DataGridTemplateColumn.HeaderStyle>
-                  <Style TargetType="DataGridColumnHeader">
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ServicesColumnHeaderStyle}">
                     <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_CpuColumnHeader_Name}" />
                   </Style>
                 </DataGridTemplateColumn.HeaderStyle>
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding CpuUsage, Converter={StaticResource CpuUsageConverter}}"
+                    <ui:TextBlock Text="{Binding CpuUsage, Converter={StaticResource CpuUsageConverter}}"
                                VerticalAlignment="Center"
                                Margin="5,0,0,0"
                                AutomationProperties.Name="{Binding CpuUsage, Converter={StaticResource CpuUsageConverter}}"
@@ -386,13 +542,13 @@
                                       CanUserReorder="False"
                                       SortMemberPath="RamUsage">
                 <DataGridTemplateColumn.HeaderStyle>
-                  <Style TargetType="DataGridColumnHeader">
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ServicesColumnHeaderStyle}">
                     <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_RamColumnHeader_Name}" />
                   </Style>
                 </DataGridTemplateColumn.HeaderStyle>
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding RamUsage, Converter={StaticResource RamUsageConverter}}"
+                    <ui:TextBlock Text="{Binding RamUsage, Converter={StaticResource RamUsageConverter}}"
                                VerticalAlignment="Center"
                                Margin="5,0,0,0"
                                AutomationProperties.Name="{Binding RamUsage, Converter={StaticResource RamUsageConverter}}"
@@ -401,45 +557,71 @@
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
 
+              <DataGridTemplateColumn Header="Memory %"
+                                      MinWidth="78"
+                                      CanUserReorder="False"
+                                      SortMemberPath="MemoryUsagePercent">
+                <DataGridTemplateColumn.HeaderStyle>
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ServicesColumnHeaderStyle}">
+                    <Setter Property="AutomationProperties.Name" Value="Memory usage percentage" />
+                  </Style>
+                </DataGridTemplateColumn.HeaderStyle>
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <ui:TextBlock Text="{Binding MemoryUsagePercent, Converter={StaticResource CpuUsageConverter}}"
+                               VerticalAlignment="Center"
+                               Margin="5,0,0,0"
+                               ToolTip="Private memory as a percentage of physical memory" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+
               <DataGridTemplateColumn Width="160"
+                                      Visibility="Collapsed"
                                       CanUserResize="False"
                                       CanUserReorder="False">
                 <DataGridTemplateColumn.HeaderStyle>
-                  <Style TargetType="DataGridColumnHeader">
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ServicesColumnHeaderStyle}">
                     <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_ActionsColumnHeader_Name}" />
                   </Style>
                 </DataGridTemplateColumn.HeaderStyle>
                 <DataGridTemplateColumn.Header>
                   <Grid Width="146">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                      <Button ToolTip="{x:Static resx:Strings.Button_StartSelected}"
+                      <ui:Button ToolTip="{x:Static resx:Strings.Button_StartSelected}"
                               Command="{Binding DataContext.StartSelectedCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                               IsEnabled="{Binding DataContext.HasSelectedServices, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                              Content="▶"
+                              Icon="{ui:SymbolIcon Symbol=Play24}"
+                              Foreground="{DynamicResource SuccessBrush}"
                               Width="24"
                               Height="24"
+                              Padding="0"
                               Margin="2,0,0,0"
                               AutomationProperties.Name="{x:Static resx:Strings.Button_StartSelected}"
                               AutomationProperties.AutomationId="StartSelectedButton"
                               AutomationProperties.HelpText="{x:Static resx:Strings.Automation_StartSelectedButton_HelpText}" />
 
-                      <Button ToolTip="{x:Static resx:Strings.Button_StopSelected}"
+                      <ui:Button ToolTip="{x:Static resx:Strings.Button_StopSelected}"
                               Command="{Binding DataContext.StopSelectedCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                               IsEnabled="{Binding DataContext.HasSelectedServices, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                              Content="■"
+                              Icon="{ui:SymbolIcon Symbol=Stop24}"
+                              Foreground="{DynamicResource DangerBrush}"
                               Width="24"
                               Height="24"
+                              Padding="0"
                               Margin="2,0,0,0"
                               AutomationProperties.Name="{x:Static resx:Strings.Button_StopSelected}"
                               AutomationProperties.AutomationId="StopSelectedButton"
                               AutomationProperties.HelpText="{x:Static resx:Strings.Automation_StopSelectedButton_HelpText}" />
 
-                      <Button ToolTip="{x:Static resx:Strings.Button_RestartSelected}"
+                      <ui:Button ToolTip="{x:Static resx:Strings.Button_RestartSelected}"
                               Command="{Binding DataContext.RestartSelectedCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                               IsEnabled="{Binding DataContext.HasSelectedServices, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                              Content="⟳"
+                              Icon="{ui:SymbolIcon Symbol=ArrowClockwise24}"
+                              Foreground="{DynamicResource AppAccentBrush}"
                               Width="24"
                               Height="24"
+                              Padding="0"
                               Margin="2,0,0,0"
                               AutomationProperties.Name="{x:Static resx:Strings.Button_RestartSelected}"
                               AutomationProperties.AutomationId="RestartSelectedButton"
@@ -454,11 +636,13 @@
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                      <Button ToolTip="{x:Static resx:Strings.Button_Start}"
+                      <ui:Button ToolTip="{x:Static resx:Strings.Button_Start}"
                               Command="{Binding StartCommand}"
-                              Content="▶"
+                              Icon="{ui:SymbolIcon Symbol=Play24}"
+                              Foreground="{DynamicResource SuccessBrush}"
                               Width="24"
                               Height="24"
+                              Padding="0"
                               Margin="2,0,0,0"
                               IsEnabled="{Binding IsInstalled}"
                               PreviewMouseLeftButtonDown="ActionButton_PreviewMouseLeftButtonDown"
@@ -466,11 +650,13 @@
                               AutomationProperties.AutomationId="StartServiceButton"
                               AutomationProperties.HelpText="{x:Static resx:Strings.Automation_StartServiceButton_HelpText}" />
 
-                      <Button ToolTip="{x:Static resx:Strings.Button_Stop}"
+                      <ui:Button ToolTip="{x:Static resx:Strings.Button_Stop}"
                               Command="{Binding StopCommand}"
-                              Content="■"
+                              Icon="{ui:SymbolIcon Symbol=Stop24}"
+                              Foreground="{DynamicResource DangerBrush}"
                               Width="24"
                               Height="24"
+                              Padding="0"
                               Margin="2,0,0,0"
                               IsEnabled="{Binding IsInstalled}"
                               PreviewMouseLeftButtonDown="ActionButton_PreviewMouseLeftButtonDown"
@@ -478,11 +664,13 @@
                               AutomationProperties.AutomationId="StopServiceButton"
                               AutomationProperties.HelpText="{x:Static resx:Strings.Automation_StopServiceButton_HelpText}" />
 
-                      <Button ToolTip="{x:Static resx:Strings.Button_Restart}"
+                      <ui:Button ToolTip="{x:Static resx:Strings.Button_Restart}"
                               Command="{Binding RestartCommand}"
-                              Content="⟳"
+                              Icon="{ui:SymbolIcon Symbol=ArrowClockwise24}"
+                              Foreground="{DynamicResource AppAccentBrush}"
                               Width="24"
                               Height="24"
+                              Padding="0"
                               Margin="2,0,0,0"
                               IsEnabled="{Binding IsInstalled}"
                               PreviewMouseLeftButtonDown="ActionButton_PreviewMouseLeftButtonDown"
@@ -490,71 +678,249 @@
                               AutomationProperties.AutomationId="RestartServiceButton"
                               AutomationProperties.HelpText="{x:Static resx:Strings.Automation_RestartServiceButton_HelpText}" />
 
-                      <Button Content="⋮"
+                      <ui:Button Icon="{ui:SymbolIcon Symbol=MoreVertical24}"
+                                 Foreground="{DynamicResource AppMutedTextBrush}"
                               ToolTip="{x:Static resx:Strings.Button_More}"
                               Width="24"
                               Height="24"
+                              Padding="0"
                               Margin="5,0,0,0"
                               PreviewMouseLeftButtonDown="MenuButton_PreviewMouseLeftButtonDown"
                               AutomationProperties.Name="{x:Static resx:Strings.Button_More}"
                               AutomationProperties.AutomationId="MoreActionsButton"
                               AutomationProperties.HelpText="{x:Static resx:Strings.Automation_MoreActionsButton_HelpText}">
-                        <Button.ContextMenu>
+                        <ui:Button.ContextMenu>
                           <ContextMenu>
-                            <MenuItem Header="{x:Static resx:Strings.Button_Install}"
+                            <ui:MenuItem Header="{x:Static resx:Strings.Button_Install}"
                                       Command="{Binding InstallCommand}"
                                       AutomationProperties.Name="{x:Static resx:Strings.Automation_RowInstallMenuItem_Name}"
                                       AutomationProperties.AutomationId="RowInstallMenuItem"
                                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_RowInstallMenuItem_HelpText}" />
 
-                            <MenuItem Header="{x:Static resx:Strings.Button_Uninstall}"
+                            <ui:MenuItem Header="{x:Static resx:Strings.Button_Uninstall}"
                                       Command="{Binding UninstallCommand}"
                                       IsEnabled="{Binding IsInstalled}"
                                       AutomationProperties.Name="{x:Static resx:Strings.Automation_RowUninstallMenuItem_Name}"
                                       AutomationProperties.AutomationId="RowUninstallMenuItem"
                                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_RowUninstallMenuItem_HelpText}" />
 
-                            <MenuItem Header="{x:Static resx:Strings.Button_Remove}"
+                            <ui:MenuItem Header="{x:Static resx:Strings.Button_Remove}"
                                       Command="{Binding RemoveCommand}"
                                       IsEnabled="{Binding IsInstalled, Converter={StaticResource InverseBooleanConverter}}"
                                       AutomationProperties.Name="{x:Static resx:Strings.Automation_RowRemoveMenuItem_Name}"
                                       AutomationProperties.AutomationId="RowRemoveMenuItem"
                                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_RowRemoveMenuItem_HelpText}" />
 
-                            <MenuItem Header="{x:Static resx:Strings.Button_Config}"
+                            <ui:MenuItem Header="{x:Static resx:Strings.Button_Config}"
                                       Command="{Binding ConfigureCommand}"
                                       IsEnabled="{Binding IsDesktopAppAvailable}"
                                       AutomationProperties.Name="{x:Static resx:Strings.Automation_RowConfigMenuItem_Name}"
                                       AutomationProperties.AutomationId="RowConfigMenuItem"
                                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_RowConfigMenuItem_HelpText}" />
 
-                            <MenuItem Header="{x:Static resx:Strings.Button_ExportXML}"
+                            <ui:MenuItem Header="{x:Static resx:Strings.Button_ExportXML}"
                                       Command="{Binding ExportXmlCommand}"
                                       AutomationProperties.Name="{x:Static resx:Strings.Button_ExportXML}"
                                       AutomationProperties.AutomationId="RowExportXmlMenuItem"
                                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_RowExportXmlMenuItem_HelpText}" />
 
-                            <MenuItem Header="{x:Static resx:Strings.Button_ExportJSON}"
+                            <ui:MenuItem Header="{x:Static resx:Strings.Button_ExportJSON}"
                                       Command="{Binding ExportJsonCommand}"
                                       AutomationProperties.Name="{x:Static resx:Strings.Button_ExportJSON}"
                                       AutomationProperties.AutomationId="RowExportJsonMenuItem"
                                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_RowExportJsonMenuItem_HelpText}" />
 
-                            <MenuItem Header="{x:Static resx:Strings.Button_CopyPid}"
+                            <ui:MenuItem Header="{x:Static resx:Strings.Button_CopyPid}"
                                       Command="{Binding CopyPidCommand}"
                                       IsEnabled="{Binding IsPidEnabled}"
                                       AutomationProperties.Name="{x:Static resx:Strings.Button_CopyPid}"
                                       AutomationProperties.AutomationId="RowCopyPidMenuItem"
                                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_RowCopyPidMenuItem_HelpText}" />
                           </ContextMenu>
-                        </Button.ContextMenu>
-                      </Button>
+                        </ui:Button.ContextMenu>
+                      </ui:Button>
                     </StackPanel>
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
-            </DataGrid.Columns>
-          </DataGrid>
+            </ui:DataGrid.Columns>
+          </ui:DataGrid>
+
+          <!-- WPF can freeze columns only from the left. This fixed overlay keeps
+               service actions visible while every data/telemetry column remains
+               horizontally scrollable underneath it. -->
+          <Grid x:Name="ActionsColumnOverlay"
+                Width="160"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Stretch"
+                Panel.ZIndex="20">
+            <Border Background="{DynamicResource AppSurfaceBrush}"
+                    BorderBrush="{DynamicResource AppBorderBrush}"
+                    BorderThickness="1,0,1,1">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="44" />
+                  <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0"
+                        Background="{DynamicResource AppSurfaceMutedBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="7,9">
+                  <UniformGrid Rows="1"
+                               Columns="4"
+                               Width="128"
+                               HorizontalAlignment="Center">
+                    <ui:Button ToolTip="{x:Static resx:Strings.Button_StartSelected}"
+                               Command="{Binding StartSelectedCommand}"
+                               IsEnabled="{Binding HasSelectedServices}"
+                               Icon="{ui:SymbolIcon Symbol=Play24}"
+                               Foreground="{DynamicResource SuccessBrush}"
+                               Width="24"
+                               Height="24"
+                               Padding="0"
+                               HorizontalAlignment="Center"
+                               AutomationProperties.Name="{x:Static resx:Strings.Button_StartSelected}"
+                               AutomationProperties.AutomationId="PinnedStartSelectedButton"
+                               AutomationProperties.HelpText="{x:Static resx:Strings.Automation_StartSelectedButton_HelpText}" />
+
+                    <ui:Button ToolTip="{x:Static resx:Strings.Button_StopSelected}"
+                               Command="{Binding StopSelectedCommand}"
+                               IsEnabled="{Binding HasSelectedServices}"
+                               Icon="{ui:SymbolIcon Symbol=Stop24}"
+                               Foreground="{DynamicResource DangerBrush}"
+                               Width="24"
+                               Height="24"
+                               Padding="0"
+                               HorizontalAlignment="Center"
+                               AutomationProperties.Name="{x:Static resx:Strings.Button_StopSelected}"
+                               AutomationProperties.AutomationId="PinnedStopSelectedButton"
+                               AutomationProperties.HelpText="{x:Static resx:Strings.Automation_StopSelectedButton_HelpText}" />
+
+                    <ui:Button ToolTip="{x:Static resx:Strings.Button_RestartSelected}"
+                               Command="{Binding RestartSelectedCommand}"
+                               IsEnabled="{Binding HasSelectedServices}"
+                               Icon="{ui:SymbolIcon Symbol=ArrowClockwise24}"
+                               Foreground="{DynamicResource AppAccentBrush}"
+                               Width="24"
+                               Height="24"
+                               Padding="0"
+                               HorizontalAlignment="Center"
+                               AutomationProperties.Name="{x:Static resx:Strings.Button_RestartSelected}"
+                               AutomationProperties.AutomationId="PinnedRestartSelectedButton"
+                               AutomationProperties.HelpText="{x:Static resx:Strings.Automation_RestartSelectedButton_HelpText}" />
+                  </UniformGrid>
+                </Border>
+
+                <ScrollViewer x:Name="ActionsScrollViewer"
+                              Grid.Row="1"
+                              VerticalScrollBarVisibility="Hidden"
+                              HorizontalScrollBarVisibility="Disabled"
+                              CanContentScroll="False"
+                              ScrollChanged="ActionsScrollViewer_ScrollChanged">
+                  <ItemsControl ItemsSource="{Binding ServicesView, IsAsync=True}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border x:Name="ActionRowBackground"
+                                Height="32"
+                                Background="{DynamicResource AppSurfaceBrush}"
+                                BorderBrush="{DynamicResource GridLinesBrush}"
+                                BorderThickness="0,0,0,1">
+                          <UniformGrid Rows="1"
+                                       Columns="4"
+                                       Width="128"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center">
+                            <ui:Button ToolTip="{x:Static resx:Strings.Button_Start}"
+                                       Command="{Binding StartCommand}"
+                                       Icon="{ui:SymbolIcon Symbol=Play24}"
+                                       Foreground="{DynamicResource SuccessBrush}"
+                                       Width="24"
+                                       Height="24"
+                                       Padding="0"
+                                       HorizontalAlignment="Center"
+                                       IsEnabled="{Binding IsInstalled}"
+                                       PreviewMouseLeftButtonDown="ActionButton_PreviewMouseLeftButtonDown"
+                                       AutomationProperties.Name="{x:Static resx:Strings.Automation_StartServiceButton_Name}"
+                                       AutomationProperties.AutomationId="PinnedStartServiceButton"
+                                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_StartServiceButton_HelpText}" />
+
+                            <ui:Button ToolTip="{x:Static resx:Strings.Button_Stop}"
+                                       Command="{Binding StopCommand}"
+                                       Icon="{ui:SymbolIcon Symbol=Stop24}"
+                                       Foreground="{DynamicResource DangerBrush}"
+                                       Width="24"
+                                       Height="24"
+                                       Padding="0"
+                                       HorizontalAlignment="Center"
+                                       IsEnabled="{Binding IsInstalled}"
+                                       PreviewMouseLeftButtonDown="ActionButton_PreviewMouseLeftButtonDown"
+                                       AutomationProperties.Name="{x:Static resx:Strings.Automation_StopServiceButton_Name}"
+                                       AutomationProperties.AutomationId="PinnedStopServiceButton"
+                                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_StopServiceButton_HelpText}" />
+
+                            <ui:Button ToolTip="{x:Static resx:Strings.Button_Restart}"
+                                       Command="{Binding RestartCommand}"
+                                       Icon="{ui:SymbolIcon Symbol=ArrowClockwise24}"
+                                       Foreground="{DynamicResource AppAccentBrush}"
+                                       Width="24"
+                                       Height="24"
+                                       Padding="0"
+                                       HorizontalAlignment="Center"
+                                       IsEnabled="{Binding IsInstalled}"
+                                       PreviewMouseLeftButtonDown="ActionButton_PreviewMouseLeftButtonDown"
+                                       AutomationProperties.Name="{x:Static resx:Strings.Automation_RestartServiceButton_Name}"
+                                       AutomationProperties.AutomationId="PinnedRestartServiceButton"
+                                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_RestartServiceButton_HelpText}" />
+
+                            <ui:Button Icon="{ui:SymbolIcon Symbol=MoreVertical24}"
+                                       Foreground="{DynamicResource AppMutedTextBrush}"
+                                       ToolTip="{x:Static resx:Strings.Button_More}"
+                                       Width="24"
+                                       Height="24"
+                                       Padding="0"
+                                       HorizontalAlignment="Center"
+                                       PreviewMouseLeftButtonDown="MenuButton_PreviewMouseLeftButtonDown"
+                                       AutomationProperties.Name="{x:Static resx:Strings.Button_More}"
+                                       AutomationProperties.AutomationId="PinnedMoreActionsButton"
+                                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_MoreActionsButton_HelpText}">
+                              <ui:Button.ContextMenu>
+                                <ContextMenu>
+                                  <ui:MenuItem Header="{x:Static resx:Strings.Button_Install}" Command="{Binding InstallCommand}" />
+                                  <ui:MenuItem Header="{x:Static resx:Strings.Button_Uninstall}" Command="{Binding UninstallCommand}" IsEnabled="{Binding IsInstalled}" />
+                                  <ui:MenuItem Header="{x:Static resx:Strings.Button_Remove}" Command="{Binding RemoveCommand}" IsEnabled="{Binding IsInstalled, Converter={StaticResource InverseBooleanConverter}}" />
+                                  <ui:MenuItem Header="{x:Static resx:Strings.Button_Config}" Command="{Binding ConfigureCommand}" IsEnabled="{Binding IsDesktopAppAvailable}" />
+                                  <Separator />
+                                  <ui:MenuItem Header="{x:Static resx:Strings.Button_ExportXML}" Command="{Binding ExportXmlCommand}" />
+                                  <ui:MenuItem Header="{x:Static resx:Strings.Button_ExportJSON}" Command="{Binding ExportJsonCommand}" />
+                                  <ui:MenuItem Header="{x:Static resx:Strings.Button_CopyPid}" Command="{Binding CopyPidCommand}" IsEnabled="{Binding IsPidEnabled}" />
+                                </ContextMenu>
+                              </ui:Button.ContextMenu>
+                            </ui:Button>
+                          </UniformGrid>
+                        </Border>
+                        <DataTemplate.Triggers>
+                          <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter TargetName="ActionRowBackground" Property="Background" Value="{DynamicResource RowSelectedBrush}" />
+                          </DataTrigger>
+                        </DataTemplate.Triggers>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+              </Grid>
+            </Border>
+
+            <Border x:Name="ActionsColumnFade"
+                    Width="22"
+                    Margin="-22,0,0,0"
+                    HorizontalAlignment="Left"
+                    Background="{DynamicResource ActionsColumnFadeBrush}"
+                    IsHitTestVisible="False">
+            </Border>
+          </Grid>
+          </Grid>
 
           <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
@@ -563,7 +929,7 @@
               <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Column="0"
+            <ui:TextBlock Grid.Column="0"
                        Margin="0,5,0,0"
                        Text="{Binding FooterText}"
                        Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
@@ -573,13 +939,20 @@
                        AutomationProperties.Name="{Binding FooterText}"
                        AutomationProperties.HelpText="{x:Static resx:Strings.Automation_MainFooterText_HelpText}" />
 
-            <TextBlock Grid.Column="2"
-                       Margin="10,3,0,0"
-                       Text="{x:Static resx:Strings.Label_F5_Shortcut}"
-                       Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
-                       TextWrapping="Wrap"
-                       AutomationProperties.Name="{x:Static resx:Strings.Label_F5_Shortcut}"
-                       AutomationProperties.HelpText="{x:Static resx:Strings.Automation_MainShortcutInfo_HelpText}" />
+            <StackPanel Grid.Column="2" Margin="10,3,0,0">
+              <ui:TextBlock Text="{Binding HardwareSummary}"
+                         Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                         TextWrapping="Wrap"
+                         HorizontalAlignment="Right"
+                         AutomationProperties.Name="{Binding HardwareSummary}" />
+              <ui:TextBlock Margin="0,3,0,0"
+                         Text="{x:Static resx:Strings.Label_F5_Shortcut}"
+                         Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                         TextWrapping="Wrap"
+                         HorizontalAlignment="Right"
+                         AutomationProperties.Name="{x:Static resx:Strings.Label_F5_Shortcut}"
+                         AutomationProperties.HelpText="{x:Static resx:Strings.Automation_MainShortcutInfo_HelpText}" />
+            </StackPanel>
           </Grid>
         </Grid>
       </TabItem>
@@ -621,4 +994,4 @@
       </TabItem>
     </TabControl>
   </DockPanel>
-</Window>
+</ui:FluentWindow>

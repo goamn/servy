@@ -5,6 +5,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Windows;
+using Wpf.Ui.Appearance;
+using Wpf.Ui.Controls;
 
 namespace Servy.Views
 {
@@ -13,7 +15,7 @@ namespace Servy.Views
     /// Represents the main window of the Servy application.
     /// </summary>
     [ExcludeFromCodeCoverage]
-    public partial class MainWindow : Window
+    public partial class MainWindow : FluentWindow
     {
         /// <summary>The minimum vertical screen resolution threshold in pixels to trigger expanded window height constraints.</summary>
         private const double FullHdScreenHeightThreshold = 1080;
@@ -32,6 +34,7 @@ namespace Servy.Views
         public MainWindow(MainViewModel mainViewModel, IProcessKiller processKiller)
         {
             InitializeComponent();
+            ApplicationThemeManager.Apply(this);
 
             AdjustWindowDimensionsForScreenResolution();
 

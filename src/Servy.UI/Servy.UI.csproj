@@ -35,6 +35,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="WPF-UI" />
   </ItemGroup>
 
   <ItemGroup>

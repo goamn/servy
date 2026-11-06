@@ -80,6 +80,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="System.Management" />
+    <PackageReference Include="WPF-UI" />
   </ItemGroup>
 
   <ItemGroup>

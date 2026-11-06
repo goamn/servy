@@ -1,12 +1,314 @@
 <Application x:Class="Servy.Manager.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
   <Application.Resources>
-    <!-- Row hover background color across DataGrid controls -->
-    <SolidColorBrush x:Key="RowHoverBrush" Color="#F5F5F5" />
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ui:ThemesDictionary Theme="Light" />
+        <ui:ControlsDictionary />
+      </ResourceDictionary.MergedDictionaries>
+
+    <!-- A small shared design system keeps the desktop shell coherent while leaving
+         each feature view responsible only for its content. -->
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F5F7FB" />
+    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="AppSurfaceMutedBrush" Color="#EEF2F7" />
+    <SolidColorBrush x:Key="AppBorderBrush" Color="#DCE3EC" />
+    <SolidColorBrush x:Key="AppTextBrush" Color="#182230" />
+    <SolidColorBrush x:Key="AppMutedTextBrush" Color="#667085" />
+    <SolidColorBrush x:Key="AppAccentBrush" Color="#1769E0" />
+    <SolidColorBrush x:Key="AppAccentHoverBrush" Color="#0D57C7" />
+    <SolidColorBrush x:Key="AppAccentPressedBrush" Color="#0A45A0" />
+    <SolidColorBrush x:Key="RowHoverBrush" Color="#F0F6FF" />
+    <SolidColorBrush x:Key="RowSelectedBrush" Color="#DCEBFF" />
+    <SolidColorBrush x:Key="TabHoverBrush" Color="#E8F1FF" />
+    <SolidColorBrush x:Key="ButtonHoverBrush" Color="#E8F1FF" />
+    <SolidColorBrush x:Key="ButtonPressedBrush" Color="#D4E5FF" />
+    <SolidColorBrush x:Key="GridLinesBrush" Color="#EEF1F5" />
+    <SolidColorBrush x:Key="AlternateRowBrush" Color="#FBFCFE" />
+    <SolidColorBrush x:Key="GraphStrokeBrush" Color="#1B7F9F" />
+    <SolidColorBrush x:Key="GraphFillBrush" Color="#80C3ECFA" />
+    <SolidColorBrush x:Key="GraphBorderBrush" Color="#AAB4C2" />
+    <SolidColorBrush x:Key="GraphGridPenBrush" Color="#EBEBEB" />
+    <SolidColorBrush x:Key="PidBadgeBackgroundBrush" Color="#F0F7FA" />
+    <SolidColorBrush x:Key="PidBadgeForegroundBrush" Color="#1B7F9F" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="#16845B" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#C43D45" />
+    <LinearGradientBrush x:Key="ActionsColumnFadeBrush" StartPoint="0,0" EndPoint="1,0">
+      <GradientStop Color="#00FFFFFF" Offset="0" />
+      <GradientStop Color="#FFFFFFFF" Offset="1" />
+    </LinearGradientBrush>
+
+    <Style TargetType="TabItem">
+      <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
+      <Setter Property="Padding" Value="16,10" />
+      <Setter Property="Margin" Value="0,0,4,0" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TabItem">
+            <Border x:Name="tabBorder"
+                    Background="Transparent"
+                    BorderBrush="Transparent"
+                    BorderThickness="0,0,0,2"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter ContentSource="Header"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                TextElement.Foreground="{TemplateBinding Foreground}"
+                                TextElement.FontWeight="{TemplateBinding FontWeight}"
+                                RecognizesAccessKey="True"
+                                SnapsToDevicePixels="True" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="tabBorder" Property="Background" Value="{DynamicResource TabHoverBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="tabBorder" Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+                <Setter TargetName="tabBorder" Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="ui:TextBox">
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="9,3" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ui:TextBox">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="6"
+                    Padding="{TemplateBinding Padding}">
+              <ScrollViewer x:Name="PART_ContentHost" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="ui:Button">
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="12,5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ui:Button">
+            <Border x:Name="buttonBorder"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="6"
+                    Padding="{TemplateBinding Padding}">
+              <Grid HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ContentPresenter x:Name="IconContentPresenter"
+                                  Grid.Column="0"
+                                  Margin="0,0,4,0"
+                                  VerticalAlignment="Center"
+                                  Content="{TemplateBinding Icon}"
+                                  Focusable="False"
+                                  TextElement.FontSize="{TemplateBinding FontSize}"
+                                  TextElement.Foreground="{TemplateBinding Foreground}" />
+                <ContentPresenter x:Name="ContentPresenter"
+                                  Grid.Column="1"
+                                  VerticalAlignment="Center"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  RecognizesAccessKey="True"
+                                  TextElement.Foreground="{TemplateBinding Foreground}" />
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="Icon" Value="{x:Null}">
+                <Setter TargetName="IconContentPresenter" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="ContentPresenter" Property="Grid.Column" Value="0" />
+                <Setter TargetName="ContentPresenter" Property="Margin" Value="0" />
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="buttonBorder" Property="Background" Value="{DynamicResource ButtonHoverBrush}" />
+                <Setter TargetName="buttonBorder" Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="buttonBorder" Property="Background" Value="{DynamicResource ButtonPressedBrush}" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="buttonBorder" Property="Opacity" Value="0.45" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="Menu">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+      <Setter Property="Padding" Value="4,3" />
+    </Style>
+
+    <Style x:Key="BaseServicesColumnHeaderStyle" TargetType="DataGridColumnHeader">
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceMutedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="10,9" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="DataGridColumnHeader">
+            <Border x:Name="HeaderBorder"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    Padding="0">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <ContentPresenter Grid.Column="0"
+                                  ContentSource="Content"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  ContentStringFormat="{TemplateBinding ContentStringFormat}"
+                                  Margin="{TemplateBinding Padding}"
+                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                  SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                                  TextElement.Foreground="{TemplateBinding Foreground}"
+                                  TextElement.FontWeight="{TemplateBinding FontWeight}" />
+
+                <Path x:Name="SortGlyph"
+                      Grid.Column="1"
+                      Width="8"
+                      Height="5"
+                      Margin="6,0,0,0"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Center"
+                      Fill="{TemplateBinding Foreground}"
+                      Data="M 0,5 L 8,5 L 4,0 Z"
+                      Visibility="Collapsed" />
+
+                <Thumb x:Name="PART_RightHeaderGripper"
+                       Grid.Column="2"
+                       Width="8"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Stretch"
+                       Cursor="SizeWE"
+                       Background="Transparent"
+                       Opacity="0.01" />
+              </Grid>
+            </Border>
+
+            <ControlTemplate.Triggers>
+              <Trigger Property="SortDirection" Value="Ascending">
+                <Setter TargetName="SortGlyph" Property="Visibility" Value="Visible" />
+                <Setter TargetName="SortGlyph" Property="Data" Value="M 0,5 L 8,5 L 4,0 Z" />
+              </Trigger>
+              <Trigger Property="SortDirection" Value="Descending">
+                <Setter TargetName="SortGlyph" Property="Visibility" Value="Visible" />
+                <Setter TargetName="SortGlyph" Property="Data" Value="M 0,0 L 8,0 L 4,5 Z" />
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource ButtonHoverBrush}" />
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource ButtonPressedBrush}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="DataGrid">
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource GridLinesBrush}" />
+      <Setter Property="RowBackground" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="AlternatingRowBackground" Value="{DynamicResource AlternateRowBrush}" />
+      <Setter Property="HeadersVisibility" Value="Column" />
+    </Style>
+
+    <Style TargetType="DataGridColumnHeader">
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceMutedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+
+    <!-- Native WPF controls without WPF-UI wrapper types still use the same shell palette. -->
+    <Style TargetType="ComboBox">
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinHeight" Value="30" />
+    </Style>
+
+    <Style TargetType="DatePicker">
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinHeight" Value="30" />
+    </Style>
+
+    <Style TargetType="ListBox">
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <Style TargetType="TreeView">
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <Style TargetType="TreeViewItem">
+      <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+      <Setter Property="Padding" Value="4,3" />
+      <Setter Property="Margin" Value="0,1" />
+    </Style>
 
     <!-- Shared pill-style button used in view toolbars -->
-    <Style x:Key="ToolbarPillButtonStyle" TargetType="Button">
+    <Style x:Key="ToolbarPillButtonStyle" TargetType="ui:Button">
       <Setter Property="Background" Value="#1B7F9F" />
       <Setter Property="Foreground" Value="White" />
       <Setter Property="Margin" Value="0,0,0,6" />
@@ -16,7 +318,7 @@
       <Setter Property="Cursor" Value="Hand" />
       <Setter Property="Template">
         <Setter.Value>
-          <ControlTemplate TargetType="Button">
+          <ControlTemplate TargetType="ui:Button">
             <Border x:Name="border"
                     Background="{TemplateBinding Background}"
                     CornerRadius="2"
@@ -41,7 +343,9 @@
     <!-- Remaps the built-in SystemColors selection keys so every DataGrid gets consistent
          selection colors instead of the native Windows highlight color.
          Apply via Style="{StaticResource DataGridSelectionColorsStyle}". -->
-    <Style x:Key="DataGridSelectionColorsStyle" TargetType="DataGrid">
+    <Style x:Key="DataGridSelectionColorsStyle"
+           TargetType="DataGrid"
+           BasedOn="{StaticResource {x:Type DataGrid}}">
       <Style.Resources>
         <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#0078D7" />
         <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#0078D7" />
@@ -60,5 +364,6 @@
         <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="White" />
       </Style.Resources>
     </Style>
+    </ResourceDictionary>
   </Application.Resources>
 </Application>

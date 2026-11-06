@@ -1,5 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Windows;
+using Wpf.Ui.Appearance;
+using Wpf.Ui.Controls;
 
 namespace Servy.UI.Views
 {
@@ -7,7 +9,7 @@ namespace Servy.UI.Views
     /// Interaction logic for SplashWindow.xaml
     /// </summary>
     [ExcludeFromCodeCoverage]
-    public partial class SplashWindow : Window
+    public partial class SplashWindow : FluentWindow
     {
         /// <summary>
         /// Identifies the <see cref="SplashText"/> dependency property.
@@ -34,6 +36,7 @@ namespace Servy.UI.Views
         public SplashWindow()
         {
             InitializeComponent();
+            ApplicationThemeManager.Apply(this);
         }
 
         /// <summary>

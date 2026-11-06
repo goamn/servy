@@ -47,8 +47,10 @@ namespace Servy.Manager.ViewModels
         private bool _isUpdatingSelectAll;
         private readonly object _servicesLock = new object();
         private int _isRefreshingFlag = 0; // 0 = false, 1 = true
+        private int _initialServiceLoadCompleted;
         private readonly IAppConfiguration _appConfig;
         private readonly IProcessHelper _processHelper;
+        private readonly IHardwareMetricsProvider _hardwareMetricsProvider;
 
         #endregion
 
@@ -169,6 +171,28 @@ namespace Servy.Manager.ViewModels
             set => Set(ref _isConfiguratorEnabled, value);
         }
 
+        /// <summary>
+        /// Gets the machine telemetry summary shown in the dashboard footer.
+        /// </summary>
+        public string HardwareSummary => _hardwareMetricsProvider.Summary;
+
+        /// <summary>
+        /// Gets the GPUs discovered by NVIDIA telemetry.
+        /// </summary>
+        public IReadOnlyList<GpuDeviceInfo> Gpus => _hardwareMetricsProvider.Gpus;
+
+        /// <summary>
+        /// Gets the logical volumes discovered on the machine.
+        /// </summary>
+        public IReadOnlyList<DiskUsageMetric> Disks => _hardwareMetricsProvider.Disks;
+
+        /// <summary>
+        /// Gets a value indicating whether optional hardware discovery has completed.
+        /// Hardware discovery is intentionally deferred until after the initial service list
+        /// is displayed so a slow GPU driver cannot delay the manager shell.
+        /// </summary>
+        public bool IsHardwareMetricsInitialized => _hardwareMetricsProvider.IsInitialized;
+
         #endregion
 
         #region Commands
@@ -243,7 +267,8 @@ namespace Servy.Manager.ViewModels
             IAppConfiguration appConfig,
             ICursorService cursorService,
             IProcessHelper processHelper,
-            Dispatcher? dispatcher = null
+            Dispatcher? dispatcher = null,
+            IHardwareMetricsProvider? hardwareMetricsProvider = null
             ) : base(cursorService)
         {
             _serviceManager = serviceManager ?? throw new ArgumentNullException(nameof(serviceManager));
@@ -256,6 +281,7 @@ namespace Servy.Manager.ViewModels
             _selectAll = false;
 
             _processHelper = processHelper ?? throw new ArgumentNullException(nameof(processHelper));
+            _hardwareMetricsProvider = hardwareMetricsProvider ?? new NullHardwareMetricsProvider();
 
             // Assign child ViewModels injected via DI
             PerformanceVM = performanceVM ?? throw new ArgumentNullException(nameof(performanceVM));
@@ -496,7 +522,10 @@ namespace Servy.Manager.ViewModels
 
                         try
                         {
-                            await RefreshAllServicesAsync(refreshToken);
+                            // The first list refresh is intentionally service-only. Optional
+                            // GPU/WMI probing begins on a later timer tick after the shell is
+                            // already interactive.
+                            await RefreshAllServicesAsyncCore(refreshToken, includeHardwareMetrics: false);
                         }
                         catch (OperationCanceledException)
                         {
@@ -520,6 +549,10 @@ namespace Servy.Manager.ViewModels
                     // allow WPF to repaint the button and show progress bar
                     await _dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
                 });
+
+            // This flag is set only after the first service list has completed. A timer tick
+            // that happens while the application shell is still starting cannot probe hardware.
+            Volatile.Write(ref _initialServiceLoadCompleted, 1);
         }
 
         /// <summary>
@@ -782,7 +815,12 @@ namespace Servy.Manager.ViewModels
         /// Refresh all services description, status, startup type, user and installation state without blocking the UI thread.
         /// </summary>
         /// <param name="token">Explicit cancellation token to prevent mid-execution NullReferenceExceptions.</param>
-        private async Task RefreshAllServicesAsync(CancellationToken token)
+        // Compatibility overload retained for reflection-based tests and integrations that
+        // invoke the original one-parameter refresh method.
+        private Task RefreshAllServicesAsync(CancellationToken token) =>
+            RefreshAllServicesAsyncCore(token, includeHardwareMetrics: true);
+
+        private async Task RefreshAllServicesAsyncCore(CancellationToken token, bool includeHardwareMetrics)
         {
             try
             {
@@ -815,6 +853,27 @@ namespace Servy.Manager.ViewModels
                 var allDtosList = await _serviceRepository.GetAllAsync(decrypt: true, token);
                 var allDtosDict = BuildUniqueNameDictionary(allDtosList, d => d.Name);
 
+                // Capture expensive hardware telemetry once per refresh and reuse it for every row.
+                // This is skipped for the initial service load so NVIDIA/WMI probing can never
+                // delay the first usable manager screen.
+                var hardwareSnapshot = HardwareMetricsSnapshot.Empty;
+                var hardwareMetricsReadyToStart =
+                    includeHardwareMetrics && Volatile.Read(ref _initialServiceLoadCompleted) == 1;
+
+                if (hardwareMetricsReadyToStart)
+                {
+                    // NVIDIA, WMI, and storage access remain entirely off the UI thread.
+                    hardwareSnapshot = await _hardwareMetricsProvider.CaptureAsync(token);
+
+                    await _dispatcher.InvokeAsync(() =>
+                    {
+                        OnPropertyChanged(nameof(IsHardwareMetricsInitialized));
+                        OnPropertyChanged(nameof(HardwareSummary));
+                        OnPropertyChanged(nameof(Gpus));
+                        OnPropertyChanged(nameof(Disks));
+                    }, DispatcherPriority.Background, token);
+                }
+
                 // 4. Process data collection in parallel
                 // We collect the updates in thread-safe bags instead of applying them immediately
                 var changedDtos = new System.Collections.Concurrent.ConcurrentBag<ServiceDto>();
@@ -837,7 +896,7 @@ namespace Servy.Manager.ViewModels
                             allDtosDict.TryGetValue(service.Name, out var dto);
 
                             // Collect updates without touching the UI model yet
-                            var result = GetServiceUpdateInfo(service, allServicesDict, dto, token);
+                            var result = GetServiceUpdateInfoWithHardware(service, allServicesDict, dto, hardwareSnapshot, token);
 
                             if (result.UpdateInfo != null)
                                 uiUpdates.Add(result.UpdateInfo);
@@ -925,10 +984,11 @@ namespace Servy.Manager.ViewModels
         /// <summary>
         /// Pure logic method to calculate what needs to change without touching UI models.
         /// </summary>
-        private (ServiceUpdateInfo? UpdateInfo, ServiceDto? UpdatedDto) GetServiceUpdateInfo(
+        private (ServiceUpdateInfo? UpdateInfo, ServiceDto? UpdatedDto) GetServiceUpdateInfoWithHardware(
             Service service,
             Dictionary<string, ServiceInfo> allServices,
             ServiceDto? serviceDto,
+            HardwareMetricsSnapshot hardwareSnapshot,
             CancellationToken token)
         {
             try
@@ -971,6 +1031,9 @@ namespace Servy.Manager.ViewModels
 
                 update.CpuUsage = cpu;
                 update.RamUsage = ram;
+                update.MemoryUsagePercent = CalculateMemoryUsagePercent(ram, hardwareSnapshot.TotalPhysicalMemoryBytes);
+                update.HardwareSnapshot = hardwareSnapshot;
+                update.TargetProcessId = targetPid;
 
                 if (update.StartupType == null && serviceDto != null && serviceDto.StartupType.HasValue)
                 {
@@ -1030,6 +1093,23 @@ namespace Servy.Manager.ViewModels
             }
         }
 
+        // Kept as a small compatibility method for existing reflection-based unit tests and
+        // integrations that exercise the pure service-state calculation without hardware telemetry.
+        private (ServiceUpdateInfo? UpdateInfo, ServiceDto? UpdatedDto) GetServiceUpdateInfo(
+            Service service,
+            Dictionary<string, ServiceInfo> allServices,
+            ServiceDto? serviceDto,
+            CancellationToken token)
+        {
+            var snapshot = new HardwareMetricsSnapshot(
+                Array.Empty<GpuDeviceInfo>(),
+                Array.Empty<DiskUsageMetric>(),
+                new Dictionary<int, IReadOnlyDictionary<int, ProcessGpuMetric>>(),
+                GC.GetGCMemoryInfo().TotalAvailableMemoryBytes,
+                false);
+            return GetServiceUpdateInfoWithHardware(service, allServices, serviceDto, snapshot, token);
+        }
+
         /// <summary>
         /// Safely applies a gathered update to the UI model. Must be called from the UI thread.
         /// </summary>
@@ -1045,6 +1125,8 @@ namespace Servy.Manager.ViewModels
 
             service.CpuUsage = info.CpuUsage;
             service.RamUsage = info.RamUsage;
+            service.MemoryUsagePercent = info.MemoryUsagePercent;
+            ApplyHardwareMetrics(service, info.HardwareSnapshot, info.TargetProcessId);
             service.IsInstalled = info.IsInstalled;
 
             if (info.Status.HasValue && service.Status != info.Status.Value)
@@ -1071,6 +1153,9 @@ namespace Servy.Manager.ViewModels
             public int? NewPid { get; set; }
             public double? CpuUsage { get; set; }
             public long? RamUsage { get; set; }
+            public double? MemoryUsagePercent { get; set; }
+            public HardwareMetricsSnapshot? HardwareSnapshot { get; set; }
+            public int? TargetProcessId { get; set; }
             public bool IsInstalled { get; set; }
             public ServiceStatus? Status { get; set; }
             public ServiceStartType? StartupType { get; set; }
@@ -1081,6 +1166,62 @@ namespace Servy.Manager.ViewModels
             {
                 Target = target;
             }
+        }
+
+        private static double? CalculateMemoryUsagePercent(long? bytes, long totalBytes)
+        {
+            if (!bytes.HasValue || bytes.Value <= 0 || totalBytes <= 0) return null;
+            return Math.Clamp(bytes.Value * 100d / totalBytes, 0, 100);
+        }
+
+        private static void ApplyHardwareMetrics(
+            Service service,
+            HardwareMetricsSnapshot? snapshot,
+            int? processId)
+        {
+            if (snapshot is null) return;
+
+            var disks = snapshot.Disks;
+            var diskCount = disks.Count == 0 ? 1 : disks.Count > 1 ? disks.Count + 1 : 1;
+            service.ConfigureHardwareMetricDimensions(snapshot.Gpus.Count, diskCount);
+
+            var processGpuMetrics = snapshot.GetGpuMetrics(processId);
+            for (var i = 0; i < snapshot.Gpus.Count; i++)
+            {
+                var gpu = snapshot.Gpus[i];
+                service.GpuMetrics[i].Apply(
+                    processGpuMetrics.TryGetValue(gpu.Index, out var metric) ? metric : null,
+                    gpu);
+            }
+
+            if (disks.Count == 0)
+            {
+                service.DiskMetrics[0].Apply(new DiskUsageMetric("All disks", 0, 0, 0));
+                return;
+            }
+
+            for (var i = 0; i < disks.Count; i++)
+                service.DiskMetrics[i].Apply(disks[i]);
+
+            if (disks.Count > 1)
+            {
+                var total = disks.Sum(d => d.TotalBytes);
+                var free = disks.Sum(d => d.FreeBytes);
+                var percent = total <= 0 ? 0 : Math.Clamp((total - free) * 100d / total, 0, 100);
+                service.DiskMetrics[^1].Apply(new DiskUsageMetric(
+                    "All disks",
+                    total,
+                    free,
+                    percent,
+                    SumAvailableActivity(disks.Select(d => d.ReadBytesPerSecond)),
+                    SumAvailableActivity(disks.Select(d => d.WriteBytesPerSecond))));
+            }
+        }
+
+        private static double? SumAvailableActivity(IEnumerable<double?> values)
+        {
+            var availableValues = values.Where(value => value.HasValue).Select(value => value!.Value).ToArray();
+            return availableValues.Length == 0 ? null : availableValues.Sum();
         }
 
         /// <summary>

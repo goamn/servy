@@ -1,7 +1,9 @@
 using Servy.Core.Helpers;
 using Servy.Core.Logging;
 using Servy.Manager.Config;
+using Servy.Manager.Models;
 using Servy.Manager.Resources;
+using Servy.Manager.Services;
 using Servy.Manager.Utils;
 using Servy.Manager.ViewModels;
 using Servy.UI.Services;
@@ -9,12 +11,21 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Windows.Automation;
 using System.Windows;
+using Wpf.Ui.Appearance;
+using Button = Wpf.Ui.Controls.Button;
+using FluentWindow = Wpf.Ui.Controls.FluentWindow;
+using MenuItem = Wpf.Ui.Controls.MenuItem;
+using TextBlock = Wpf.Ui.Controls.TextBlock;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Media3D;
+using System.Windows.Threading;
 
 namespace Servy.Manager.Views
 {
@@ -23,7 +34,7 @@ namespace Servy.Manager.Views
     /// Represents the main window of the Servy Manager application.
     /// </summary>
     [ExcludeFromCodeCoverage]
-    public partial class MainWindow : Window
+    public partial class MainWindow : FluentWindow
     {
         /// <summary>
         /// Specifies the active tab scope used to coordinate background activity teardown during tab transitions.
@@ -48,6 +59,23 @@ namespace Servy.Manager.Views
 
         private readonly IMessageBoxService _messageBoxService;
         private readonly IProcessKiller _processKiller;
+        private readonly ThemePreferenceStore _themePreferenceStore;
+        private readonly ColumnVisibilityPreferences _columnVisibilityPreferences;
+        private readonly List<DataGridColumn> _hardwareColumns = new();
+        private readonly List<DataGridColumn> _gpuUsageColumns = new();
+        private readonly List<DataGridColumn> _gpuAdditionalColumns = new();
+        private readonly List<DataGridColumn> _diskAdditionalColumns = new();
+        private DataGridColumn? _primaryDiskActivityColumn;
+        private ScrollViewer? _servicesScrollViewer;
+        private bool _isSynchronizingActionsScroll;
+        private bool _hardwareColumnsBuilt;
+        private bool _isWatchingSystemTheme;
+
+        private const double ActionsColumnWidth = 160;
+        private const double ColumnResizeHitTargetWidth = 14;
+        private const double ColumnGroupArrowSlotWidth = 20;
+        private const double ColumnGroupArrowLabelGap = 2;
+        private const double ColumnGroupMenuContentInset = 16;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MainWindow"/> class using constructor injection.
@@ -61,11 +89,29 @@ namespace Servy.Manager.Views
             IProcessKiller processKiller
             )
         {
-            InitializeComponent();
+            Logger.Info("Servy Manager main window construction started.");
 
-            _messageBoxService = messageBoxService ?? throw new ArgumentNullException(nameof(messageBoxService));
-            DataContext = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
-            _processKiller = processKiller ?? throw new ArgumentNullException(nameof(processKiller));
+            try
+            {
+                InitializeComponent();
+                ApplicationThemeManager.Apply(this);
+                _themePreferenceStore = new ThemePreferenceStore();
+                ApplicationThemeManager.Changed += ApplicationThemeManager_Changed;
+
+                _columnVisibilityPreferences = new ColumnVisibilityPreferences();
+                ApplySavedColumnVisibilityToExistingColumns();
+                _messageBoxService = messageBoxService ?? throw new ArgumentNullException(nameof(messageBoxService));
+                DataContext = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
+                _processKiller = processKiller ?? throw new ArgumentNullException(nameof(processKiller));
+                mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
+
+                Logger.Info("Servy Manager main window construction completed.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Servy Manager main window construction failed.", ex);
+                throw;
+            }
         }
 
         /// <summary>
@@ -77,6 +123,87 @@ namespace Servy.Manager.Views
         private void Window_Loaded(object sender, RoutedEventArgs e)
             => _ = RunAsync(() => Window_LoadedAsync(sender, e));
 
+        private void ServicesDataGrid_Loaded(object sender, RoutedEventArgs e)
+        {
+            _servicesScrollViewer ??= FindVisualChild<ScrollViewer>(ServicesDataGrid);
+            if (_servicesScrollViewer != null)
+            {
+                _servicesScrollViewer.ScrollChanged -= ServicesScrollViewer_ScrollChanged;
+                _servicesScrollViewer.ScrollChanged += ServicesScrollViewer_ScrollChanged;
+                UpdateActionsColumnFade();
+            }
+        }
+
+        private void ServicesScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (_isSynchronizingActionsScroll)
+                return;
+
+            UpdateActionsColumnFade();
+            if (Math.Abs(e.VerticalChange) < 0.01) return;
+
+            try
+            {
+                _isSynchronizingActionsScroll = true;
+                ActionsScrollViewer.ScrollToVerticalOffset(e.VerticalOffset);
+            }
+            finally
+            {
+                _isSynchronizingActionsScroll = false;
+            }
+        }
+
+        private void UpdateActionsColumnFade()
+        {
+            if (_servicesScrollViewer is null) return;
+
+            // The fade separates scrolling content from the fixed Actions overlay. At the
+            // horizontal end there is no more content sliding underneath it, so remove the
+            // gradient and leave the final column fully legible.
+            ActionsColumnFade.Visibility = ShouldShowActionsColumnFade(
+                _servicesScrollViewer.ScrollableWidth,
+                _servicesScrollViewer.HorizontalOffset)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
+        internal static bool ShouldShowActionsColumnFade(double scrollableWidth, double horizontalOffset) =>
+            double.IsFinite(scrollableWidth) &&
+            double.IsFinite(horizontalOffset) &&
+            scrollableWidth - horizontalOffset > 1;
+
+        private void ActionsScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (_isSynchronizingActionsScroll || _servicesScrollViewer == null || Math.Abs(e.VerticalChange) < 0.01)
+                return;
+
+            try
+            {
+                _isSynchronizingActionsScroll = true;
+                _servicesScrollViewer.ScrollToVerticalOffset(e.VerticalOffset);
+            }
+            finally
+            {
+                _isSynchronizingActionsScroll = false;
+            }
+        }
+
+        private static T? FindVisualChild<T>(DependencyObject root) where T : DependencyObject
+        {
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+                if (child is T match)
+                    return match;
+
+                var descendant = FindVisualChild<T>(child);
+                if (descendant != null)
+                    return descendant;
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// Performs asynchronous initialization when the window is loaded.
         /// Executes the initial service search via the <see cref="MainViewModel.SearchCommand"/>.
@@ -86,12 +213,294 @@ namespace Servy.Manager.Views
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         private async Task Window_LoadedAsync(object sender, RoutedEventArgs e)
         {
-            // Trigger the global search command to populate the dashboard
-            // the moment the shell is ready for interaction.
-            if (DataContext is MainViewModel vm)
+            Logger.Info("Servy Manager window loaded; starting the initial service-only search.");
+
+            if (_themePreferenceStore.Preference == ThemePreference.System)
+                StartSystemThemeWatcher();
+            else
+                UpdateThemeToggleButton(ApplicationThemeManager.GetAppTheme());
+
+            try
             {
-                await vm.SearchCommand.ExecuteAsync(null);
+                // Trigger the global search command to populate the dashboard
+                // the moment the shell is ready for interaction. Hardware discovery is
+                // deliberately not part of this path.
+                if (DataContext is MainViewModel vm)
+                {
+                    await vm.SearchCommand.ExecuteAsync(null);
+                    Logger.Info("Initial service-only search completed; manager shell is interactive.");
+                }
             }
+            catch (Exception ex)
+            {
+                Logger.Error("Initial manager window load failed.", ex);
+                throw;
+            }
+        }
+
+        private void StartSystemThemeWatcher()
+        {
+            if (_isWatchingSystemTheme) return;
+
+            try
+            {
+                SystemThemeWatcher.Watch(this, Wpf.Ui.Controls.WindowBackdropType.None, updateAccents: true);
+                _isWatchingSystemTheme = true;
+                var currentTheme = ApplicationThemeManager.GetAppTheme();
+                SynchronizeTheme(currentTheme);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Windows theme monitoring could not be started; the current theme will remain active. {ex.Message}");
+            }
+        }
+
+        private void StopSystemThemeWatcher()
+        {
+            if (!_isWatchingSystemTheme) return;
+
+            try
+            {
+                SystemThemeWatcher.UnWatch(this);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Windows theme monitoring could not be stopped cleanly. {ex.Message}");
+            }
+            finally
+            {
+                _isWatchingSystemTheme = false;
+            }
+        }
+
+        private void ApplicationThemeManager_Changed(ApplicationTheme theme, Color accent)
+        {
+            SynchronizeTheme(theme);
+        }
+
+        private void SynchronizeTheme(ApplicationTheme theme)
+        {
+            // WPF-UI copies application resources into each window. Refresh that copy,
+            // then explicitly update both palette scopes so no copied light brushes can
+            // linger beside the newly applied dark (or light) WPF-UI control resources.
+            ApplicationThemeManager.Apply(this);
+            ApplyThemePalette(theme);
+            ThemePalette.Apply(Resources, theme);
+            UpdateThemeToggleButton(theme);
+        }
+
+        private static void ApplyThemePalette(ApplicationTheme theme)
+        {
+            if (Application.Current is { } application)
+                ThemePalette.Apply(application, theme);
+        }
+
+        private void UpdateThemeToggleButton(ApplicationTheme theme)
+        {
+            var isDark = ThemePalette.IsDark(theme);
+            var label = isDark ? "Switch to light mode" : "Switch to dark mode";
+            ThemeToggleButton.Icon = new Wpf.Ui.Controls.SymbolIcon
+            {
+                Symbol = isDark ? Wpf.Ui.Controls.SymbolRegular.WeatherSunny24 : Wpf.Ui.Controls.SymbolRegular.WeatherMoon24
+            };
+            ThemeToggleButton.ToolTip = label;
+            AutomationProperties.SetName(ThemeToggleButton, label);
+        }
+
+        private void ThemeToggleButton_Click(object sender, RoutedEventArgs e)
+        {
+            var nextTheme = ThemePalette.IsDark(ApplicationThemeManager.GetAppTheme())
+                ? ApplicationTheme.Light
+                : ApplicationTheme.Dark;
+            SetThemePreference(nextTheme == ApplicationTheme.Dark ? ThemePreference.Dark : ThemePreference.Light, nextTheme);
+        }
+
+        private void FollowSystemTheme_Click(object sender, RoutedEventArgs e)
+        {
+            SetThemePreference(ThemePreference.System, ThemePalette.Resolve(ThemePreference.System));
+            StartSystemThemeWatcher();
+        }
+
+        private void SetThemePreference(ThemePreference preference, ApplicationTheme theme)
+        {
+            _themePreferenceStore.SetPreference(preference);
+            if (preference == ThemePreference.System)
+            {
+                SystemThemeManager.UpdateSystemThemeCache();
+                theme = ThemePalette.Resolve(ThemePreference.System);
+            }
+            else
+            {
+                StopSystemThemeWatcher();
+            }
+
+            ApplicationThemeManager.Apply(theme, Wpf.Ui.Controls.WindowBackdropType.None, updateAccent: true);
+            SynchronizeTheme(theme);
+        }
+
+        private void MainViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is not MainViewModel vm ||
+                e.PropertyName is not (nameof(MainViewModel.IsHardwareMetricsInitialized)
+                    or nameof(MainViewModel.Gpus)
+                    or nameof(MainViewModel.Disks)))
+            {
+                return;
+            }
+
+            BuildHardwareColumns(vm);
+        }
+
+        /// <summary>
+        /// Adds optional GPU and disk columns after the hardware provider has completed discovery.
+        /// The fixed columns remain declared in XAML; only hardware-dependent columns are created here.
+        /// </summary>
+        private void BuildHardwareColumns(MainViewModel vm)
+        {
+            if (_hardwareColumnsBuilt || !vm.IsHardwareMetricsInitialized) return;
+
+            _hardwareColumnsBuilt = true;
+
+            if (vm.Gpus.Count == 0 && vm.Disks.Count == 0)
+            {
+                Logger.Info("No optional GPU or disk telemetry was detected; hardware columns omitted.");
+                return;
+            }
+
+            var insertIndex = Math.Max(1, ServicesDataGrid.Columns.Count - 1);
+
+            for (var i = 0; i < vm.Gpus.Count; i++)
+            {
+                var gpu = vm.Gpus[i];
+                var gpuPrefix = vm.Gpus.Count == 1 ? "GPU" : $"GPU {gpu.Index}";
+                var usageLabel = vm.Gpus.Count == 1 ? "GPU usage (%)" : $"{gpuPrefix} usage (%)";
+                var powerLabel = vm.Gpus.Count == 1 ? "GPU power (W)" : $"{gpuPrefix} power (W)";
+                var vramLabel = vm.Gpus.Count == 1
+                    ? "VRAM"
+                    : $"VRAM {gpu.Index}";
+                var usageColumn = CreateMetricColumn(
+                    usageLabel,
+                    $"GpuMetrics[{i}].UsageDisplay",
+                    $"GpuMetrics[{i}].UsageDetailsDisplay",
+                    160);
+                _gpuUsageColumns.Add(usageColumn);
+                _hardwareColumns.Add(usageColumn);
+                var powerColumn = CreateMetricColumn(
+                    powerLabel,
+                    $"GpuMetrics[{i}].PowerDisplay",
+                    $"GpuMetrics[{i}].PowerDetailsDisplay",
+                    112,
+                    Visibility.Hidden);
+                _gpuAdditionalColumns.Add(powerColumn);
+                _hardwareColumns.Add(powerColumn);
+                var vramColumn = CreateMetricColumn(
+                    vramLabel,
+                    $"GpuMetrics[{i}].VramDisplay",
+                    $"GpuMetrics[{i}].DetailsDisplay",
+                    104,
+                    Visibility.Hidden);
+                _gpuAdditionalColumns.Add(vramColumn);
+                _hardwareColumns.Add(vramColumn);
+            }
+
+            if (vm.Disks.Count > 0)
+            {
+                var cDriveIndex = -1;
+                for (var i = 0; i < vm.Disks.Count; i++)
+                {
+                    if (string.Equals(vm.Disks[i].Label.TrimEnd('\\'), "C:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        cDriveIndex = i;
+                        break;
+                    }
+                }
+                if (cDriveIndex < 0) cDriveIndex = 0;
+
+                var diskActivityColumns = new List<DataGridColumn>();
+                for (var i = 0; i < vm.Disks.Count; i++)
+                {
+                    var driveLabel = vm.Disks[i].Label.TrimEnd('\\');
+                    var diskColumn = CreateMetricColumn(
+                        $"Disk {driveLabel} activity",
+                        $"DiskMetrics[{i}].UsageDisplay",
+                        $"DiskMetrics[{i}].DetailsDisplay",
+                        160,
+                        i == cDriveIndex ? Visibility.Visible : Visibility.Hidden);
+                    diskActivityColumns.Add(diskColumn);
+                    _hardwareColumns.Add(diskColumn);
+                }
+
+                _primaryDiskActivityColumn = diskActivityColumns[cDriveIndex];
+                _diskAdditionalColumns.AddRange(diskActivityColumns.Where((_, index) => index != cDriveIndex));
+
+                if (vm.Disks.Count > 1)
+                {
+                    var allDisksColumn = CreateMetricColumn(
+                        "All disks activity",
+                        $"DiskMetrics[{vm.Disks.Count}].UsageDisplay",
+                        $"DiskMetrics[{vm.Disks.Count}].DetailsDisplay",
+                        160,
+                        Visibility.Hidden);
+                    _diskAdditionalColumns.Add(allDisksColumn);
+                    _hardwareColumns.Add(allDisksColumn);
+                }
+
+                var overallDiskIndex = vm.Disks.Count > 1 ? vm.Disks.Count : 0;
+                var diskLabel = vm.Disks.Count > 1 ? "All disks" : $"Disk {vm.Disks[0].Label.TrimEnd('\\')}";
+
+                var readColumn = CreateMetricColumn(
+                    $"{diskLabel} read",
+                    $"DiskMetrics[{overallDiskIndex}].ReadDisplay",
+                    $"DiskMetrics[{overallDiskIndex}].ReadDetailsDisplay",
+                    120,
+                    Visibility.Hidden);
+                _diskAdditionalColumns.Add(readColumn);
+                _hardwareColumns.Add(readColumn);
+                var writeColumn = CreateMetricColumn(
+                    $"{diskLabel} write",
+                    $"DiskMetrics[{overallDiskIndex}].WriteDisplay",
+                    $"DiskMetrics[{overallDiskIndex}].WriteDetailsDisplay",
+                    120,
+                    Visibility.Hidden);
+                _diskAdditionalColumns.Add(writeColumn);
+                _hardwareColumns.Add(writeColumn);
+            }
+
+            foreach (var column in _hardwareColumns)
+            {
+                column.CanUserReorder = false;
+                column.HeaderStyle = (Style)FindResource("ServicesColumnHeaderStyle");
+                ApplySavedColumnVisibility(column);
+                ServicesDataGrid.Columns.Insert(insertIndex++, column);
+            }
+
+            Logger.Info($"Added {_hardwareColumns.Count} optional hardware columns.");
+        }
+
+        private static DataGridTemplateColumn CreateMetricColumn(
+            string header,
+            string bindingPath,
+            string tooltipPath,
+            double width,
+            Visibility visibility = Visibility.Visible)
+        {
+            var text = new FrameworkElementFactory(typeof(TextBlock));
+            text.SetValue(TextBlock.MarginProperty, new Thickness(5, 0, 0, 0));
+            text.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+            text.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+            text.SetBinding(TextBlock.TextProperty, new Binding(bindingPath));
+            text.SetBinding(TextBlock.ToolTipProperty, new Binding(tooltipPath));
+
+            return new DataGridTemplateColumn
+            {
+                Header = header,
+                Width = new DataGridLength(width),
+                MinWidth = Math.Min(72, width),
+                CanUserResize = true,
+                Visibility = visibility,
+                SortMemberPath = bindingPath,
+                CellTemplate = new DataTemplate { VisualTree = text }
+            };
         }
 
         /// <summary>
@@ -371,6 +780,21 @@ namespace Servy.Manager.Views
         /// <param name="e">Mouse button event arguments.</param>
         private void ColumnHeader_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            if (e.ClickCount == 2 && sender is DataGridColumnHeader resizedHeader && resizedHeader.Column.CanUserResize)
+            {
+                var pointerX = e.GetPosition(resizedHeader).X;
+                var clickedGripper = e.OriginalSource is DependencyObject resizeSource &&
+                    FindVisualAncestor<Thumb>(resizeSource) is { Name: "PART_RightHeaderGripper" };
+                var clickedDividerArea = pointerX >= resizedHeader.ActualWidth - ColumnResizeHitTargetWidth;
+
+                if (clickedGripper || clickedDividerArea)
+                {
+                    AutoSizeColumn(resizedHeader.Column, resizedHeader);
+                    e.Handled = true;
+                    return;
+                }
+            }
+
             if (sender is DataGridColumnHeader header &&
                 header.Content is CheckBox cb &&
                 ServicesDataGrid.DataContext is MainViewModel vm)
@@ -380,6 +804,401 @@ namespace Servy.Manager.Views
                 vm.SelectAll = newValue;
                 e.Handled = true;
             }
+        }
+
+        private void AutoSizeColumn(DataGridColumn column, DataGridColumnHeader header)
+        {
+            try
+            {
+                var desiredWidth = column.MinWidth;
+                var headerText = new System.Windows.Controls.TextBlock
+                {
+                    Text = Convert.ToString(column.Header) ?? string.Empty,
+                    FontFamily = header.FontFamily,
+                    FontSize = header.FontSize,
+                    FontWeight = header.FontWeight,
+                    FontStyle = header.FontStyle,
+                    TextWrapping = TextWrapping.NoWrap
+                };
+                headerText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                desiredWidth = Math.Max(
+                    desiredWidth,
+                    headerText.DesiredSize.Width + header.Padding.Left + header.Padding.Right + 24);
+
+                if (column is DataGridTemplateColumn { CellTemplate: { } template })
+                {
+                    foreach (var item in ServicesDataGrid.Items)
+                    {
+                        if (ReferenceEquals(item, CollectionView.NewItemPlaceholder)) continue;
+
+                        // Host the template in a ContentPresenter so WPF establishes the
+                        // normal Content/DataContext inheritance before measuring bindings.
+                        // Calling LoadContent() directly leaves some template bindings
+                        // unresolved, which silently measures only the header width.
+                        var cellPresenter = new ContentPresenter
+                        {
+                            Content = item,
+                            ContentTemplate = template
+                        };
+                        cellPresenter.ApplyTemplate();
+                        RemoveCellMeasureConstraints(cellPresenter);
+                        cellPresenter.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                        if (double.IsFinite(cellPresenter.DesiredSize.Width))
+                            desiredWidth = Math.Max(desiredWidth, cellPresenter.DesiredSize.Width + 16);
+                    }
+                }
+
+                column.Width = new DataGridLength(Math.Ceiling(desiredWidth));
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Could not auto-size the '{GetColumnTitle(column)}' service column.", ex);
+            }
+        }
+
+        private static void RemoveCellMeasureConstraints(DependencyObject root)
+        {
+            if (root is FrameworkElement element)
+            {
+                BindingOperations.ClearBinding(element, FrameworkElement.MaxWidthProperty);
+                element.ClearValue(FrameworkElement.MaxWidthProperty);
+            }
+
+            if (root is System.Windows.Controls.TextBlock textBlock)
+            {
+                textBlock.TextWrapping = TextWrapping.NoWrap;
+                textBlock.TextTrimming = TextTrimming.None;
+            }
+
+            if (root is Visual or Visual3D)
+            {
+                for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+                    RemoveCellMeasureConstraints(VisualTreeHelper.GetChild(root, i));
+            }
+            else if (root is FrameworkContentElement contentElement)
+            {
+                foreach (var child in LogicalTreeHelper.GetChildren(contentElement))
+                {
+                    if (child is DependencyObject dependencyObject)
+                        RemoveCellMeasureConstraints(dependencyObject);
+                }
+            }
+        }
+
+        private static T? FindVisualAncestor<T>(DependencyObject source) where T : DependencyObject
+        {
+            for (DependencyObject? current = source; current is not null;)
+            {
+                if (current is T match) return match;
+                current = current is Visual or Visual3D
+                    ? VisualTreeHelper.GetParent(current)
+                    : LogicalTreeHelper.GetParent(current);
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Selects the row before opening its context menu so row commands always target the
+        /// entry that was right-clicked, including when another row was selected previously.
+        /// </summary>
+        private void DataGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is DataGridRow row && row.DataContext is ServiceRowViewModel service)
+            {
+                row.IsSelected = true;
+                ServicesDataGrid.SelectedItem = service;
+                ServicesDataGrid.Focus();
+            }
+        }
+
+        /// <summary>
+        /// Builds a compact column chooser for the header that was right-clicked.
+        /// The selection and action columns stay visible so this menu remains reachable.
+        /// </summary>
+        private void ServicesColumnHeader_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            if (sender is not DataGridColumnHeader header) return;
+
+            var menu = new ContextMenu();
+            menu.Items.Add(new MenuItem
+            {
+                Header = "Show / hide columns",
+                IsEnabled = false,
+                FontWeight = FontWeights.SemiBold
+            });
+
+            var firstColumn = ServicesDataGrid.Columns.FirstOrDefault();
+            var actionColumn = ServicesDataGrid.Columns.LastOrDefault();
+            var groupedColumns = new HashSet<DataGridColumn>();
+
+            if (_gpuUsageColumns.Count > 0)
+            {
+                var primaryGpuUsage = _gpuUsageColumns[0];
+                var gpuSecondaryColumns = _gpuAdditionalColumns.ToArray();
+                groupedColumns.Add(primaryGpuUsage);
+                foreach (var column in gpuSecondaryColumns) groupedColumns.Add(column);
+                AddColumnGroupMenuItems(menu, CreateColumnGroupMenuItem(
+                    primaryGpuUsage,
+                    gpuSecondaryColumns,
+                    "Show more columns"));
+
+                // Every detected GPU keeps its own process-utilization column visible by default.
+                // Additional devices stay individually configurable without duplicating the expander.
+                foreach (var column in _gpuUsageColumns.Skip(1))
+                {
+                    groupedColumns.Add(column);
+                    menu.Items.Add(CreateColumnVisibilityMenuItem(column));
+                }
+            }
+
+            if (_primaryDiskActivityColumn is not null)
+            {
+                groupedColumns.Add(_primaryDiskActivityColumn);
+                foreach (var column in _diskAdditionalColumns) groupedColumns.Add(column);
+                AddColumnGroupMenuItems(menu, CreateColumnGroupMenuItem(
+                    _primaryDiskActivityColumn,
+                    _diskAdditionalColumns,
+                    "Show more columns"));
+            }
+
+            if (groupedColumns.Count > 0)
+                menu.Items.Add(new Separator());
+
+            foreach (var column in ServicesDataGrid.Columns.OrderBy(c => c.DisplayIndex))
+            {
+                if (ReferenceEquals(column, firstColumn) ||
+                    ReferenceEquals(column, actionColumn) ||
+                    groupedColumns.Contains(column))
+                {
+                    continue;
+                }
+
+                menu.Items.Add(CreateColumnVisibilityMenuItem(column));
+            }
+
+            menu.Items.Add(new Separator());
+            var showAll = new MenuItem { Header = "Show all columns" };
+            showAll.Click += (_, _) =>
+            {
+                foreach (var column in ServicesDataGrid.Columns)
+                {
+                    // The legacy in-grid actions column is the data source for the
+                    // fixed right overlay and must never be made visible again.
+                    if (!ReferenceEquals(column, actionColumn))
+                        SetColumnVisibility(column, isVisible: true);
+                }
+            };
+            menu.Items.Add(showAll);
+
+            header.ContextMenu = menu;
+            menu.PlacementTarget = header;
+            e.Handled = true;
+            menu.IsOpen = true;
+        }
+
+        private void ColumnVisibilityMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.Tag is DataGridColumn column)
+                SetColumnVisibility(column, item.IsChecked);
+        }
+
+        private MenuItem CreateColumnVisibilityMenuItem(DataGridColumn column)
+        {
+            var item = new MenuItem
+            {
+                Header = GetColumnTitle(column),
+                IsCheckable = true,
+                IsChecked = column.Visibility == Visibility.Visible,
+                Tag = column
+            };
+            item.Click += ColumnVisibilityMenuItem_Click;
+            return item;
+        }
+
+        private ColumnGroupMenuItems CreateColumnGroupMenuItem(
+            DataGridColumn primaryColumn,
+            IReadOnlyList<DataGridColumn> secondaryColumns,
+            string expandToolTip)
+        {
+            var arrow = new System.Windows.Controls.TextBlock
+            {
+                Text = "▶",
+                FontFamily = new FontFamily("Segoe UI Symbol"),
+                FontSize = 12,
+                Width = ColumnGroupArrowSlotWidth,
+                TextAlignment = TextAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                RenderTransformOrigin = new Point(0.5, 0.5),
+                RenderTransform = new RotateTransform(0)
+            };
+            var expandButton = new System.Windows.Controls.Button
+            {
+                Content = arrow,
+                Width = ColumnGroupArrowSlotWidth,
+                Height = 26,
+                Padding = new Thickness(0),
+                Margin = new Thickness(0, 0, ColumnGroupArrowLabelGap, 0),
+                BorderThickness = new Thickness(0),
+                Background = Brushes.Transparent,
+                ToolTip = expandToolTip,
+                Cursor = Cursors.Hand,
+                Focusable = false
+            };
+            AutomationProperties.SetName(expandButton, expandToolTip);
+            var label = new System.Windows.Controls.TextBlock
+            {
+                Text = GetColumnTitle(primaryColumn),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var content = new System.Windows.Controls.StackPanel { Orientation = Orientation.Horizontal };
+            content.Children.Add(expandButton);
+            content.Children.Add(label);
+
+            var primaryItem = new MenuItem
+            {
+                Header = content,
+                IsCheckable = true,
+                IsChecked = primaryColumn.Visibility == Visibility.Visible,
+                Tag = primaryColumn
+            };
+            primaryItem.Click += ColumnVisibilityMenuItem_Click;
+
+            var secondaryItems = new List<MenuItem>(secondaryColumns.Count);
+            foreach (var column in secondaryColumns)
+            {
+                var item = CreateColumnVisibilityMenuItem(column);
+                // Include the menu's leading content inset as well as the primary
+                // label's arrow slot and gap so expanded labels line up visually.
+                item.Padding = new Thickness(
+                    ColumnGroupMenuContentInset + ColumnGroupArrowSlotWidth + ColumnGroupArrowLabelGap,
+                    4,
+                    12,
+                    4);
+                item.Visibility = Visibility.Collapsed;
+                secondaryItems.Add(item);
+            }
+
+            var state = new ColumnGroupMenuState(arrow, secondaryItems);
+            expandButton.Tag = state;
+            expandButton.Click += ColumnGroupExpander_Click;
+
+            return new ColumnGroupMenuItems(primaryItem, secondaryItems);
+        }
+
+        private static void AddColumnGroupMenuItems(ContextMenu menu, ColumnGroupMenuItems group)
+        {
+            menu.Items.Add(group.Primary);
+            foreach (var item in group.SecondaryItems)
+            {
+                menu.Items.Add(item);
+            }
+        }
+
+        private void ColumnGroupExpander_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button { Tag: ColumnGroupMenuState state }) return;
+            e.Handled = true;
+
+            state.IsExpanded = !state.IsExpanded;
+            var animation = new DoubleAnimation(
+                state.IsExpanded ? 0 : 90,
+                state.IsExpanded ? 90 : 0,
+                TimeSpan.FromMilliseconds(170))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            state.Arrow.BeginAnimation(RotateTransform.AngleProperty, animation);
+
+            foreach (var item in state.SecondaryItems)
+            {
+                item.BeginAnimation(UIElement.OpacityProperty, null);
+                item.Visibility = Visibility.Visible;
+                item.Opacity = state.IsExpanded ? 0 : 1;
+                var offset = new TranslateTransform(0, state.IsExpanded ? -5 : 0);
+                item.RenderTransform = offset;
+
+                var reveal = new DoubleAnimation(
+                    state.IsExpanded ? 0 : 1,
+                    state.IsExpanded ? 1 : 0,
+                    TimeSpan.FromMilliseconds(145))
+                {
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                };
+                if (!state.IsExpanded)
+                {
+                    reveal.Completed += (_, _) =>
+                    {
+                        if (state.IsExpanded) return;
+                        item.Visibility = Visibility.Collapsed;
+                        item.Opacity = 1;
+                        item.RenderTransform = Transform.Identity;
+                    };
+                }
+
+                item.BeginAnimation(UIElement.OpacityProperty, reveal);
+                offset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(
+                    state.IsExpanded ? -5 : 0,
+                    state.IsExpanded ? 0 : -5,
+                    TimeSpan.FromMilliseconds(145))
+                {
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                });
+            }
+        }
+
+        private void SetColumnVisibility(DataGridColumn column, bool isVisible)
+        {
+            column.Visibility = isVisible ? Visibility.Visible : Visibility.Hidden;
+            if (GetColumnPreferenceKey(column) is { } key)
+                _columnVisibilityPreferences.SetVisibility(key, isVisible);
+        }
+
+        private void ApplySavedColumnVisibilityToExistingColumns()
+        {
+            foreach (var column in ServicesDataGrid.Columns)
+                ApplySavedColumnVisibility(column);
+        }
+
+        private void ApplySavedColumnVisibility(DataGridColumn column)
+        {
+            if (GetColumnPreferenceKey(column) is not { } key ||
+                !_columnVisibilityPreferences.TryGetVisibility(key, out var isVisible))
+            {
+                return;
+            }
+
+            column.Visibility = isVisible ? Visibility.Visible : Visibility.Hidden;
+        }
+
+        private static string? GetColumnPreferenceKey(DataGridColumn column)
+        {
+            return string.IsNullOrWhiteSpace(column.SortMemberPath) ? null : column.SortMemberPath;
+        }
+
+        private sealed class ColumnGroupMenuState(
+            System.Windows.Controls.TextBlock arrow,
+            IReadOnlyList<MenuItem> secondaryItems)
+        {
+            public System.Windows.Controls.TextBlock Arrow { get; } = arrow;
+            public IReadOnlyList<MenuItem> SecondaryItems { get; } = secondaryItems;
+            public bool IsExpanded { get; set; }
+        }
+
+        private sealed record ColumnGroupMenuItems(MenuItem Primary, IReadOnlyList<MenuItem> SecondaryItems);
+
+        private string GetColumnTitle(DataGridColumn column)
+        {
+            if (column.Header is string text && !string.IsNullOrWhiteSpace(text))
+                return text;
+
+            if (ReferenceEquals(column, ServicesDataGrid.Columns.FirstOrDefault()))
+                return "Select";
+
+            if (ReferenceEquals(column, ServicesDataGrid.Columns.LastOrDefault()))
+                return "Actions";
+
+            return $"Column {column.DisplayIndex + 1}";
         }
 
         /// <summary>
@@ -463,6 +1282,9 @@ namespace Servy.Manager.Views
         /// </remarks>
         protected override void OnClosed(EventArgs e)
         {
+            ApplicationThemeManager.Changed -= ApplicationThemeManager_Changed;
+            StopSystemThemeWatcher();
+
             // 1. Terminate orphaned child processes
             try
             {
@@ -484,6 +1306,7 @@ namespace Servy.Manager.Views
             {
                 if (DataContext is MainViewModel vm)
                 {
+                    vm.PropertyChanged -= MainViewModel_PropertyChanged;
                     vm.Dispose();
                 }
             }
@@ -491,6 +1314,11 @@ namespace Servy.Manager.Views
             {
                 Logger.Error("Error during ViewModel cleanup in OnClosed.", ex);
             }
+
+            if (_servicesScrollViewer != null)
+                _servicesScrollViewer.ScrollChanged -= ServicesScrollViewer_ScrollChanged;
+
+            ActionsScrollViewer.ScrollChanged -= ActionsScrollViewer_ScrollChanged;
 
             base.OnClosed(e);
         }

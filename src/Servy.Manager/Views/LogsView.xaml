@@ -1,11 +1,13 @@
 <UserControl x:Class="Servy.Manager.Views.LogsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:resx="clr-namespace:Servy.Manager.Resources"
              xmlns:converters="clr-namespace:Servy.Manager.Converters"
              mc:Ignorable="d"
+             Background="{DynamicResource AppBackgroundBrush}"
              UseLayoutRounding="True"
              SnapsToDevicePixels="True"
              AutomationProperties.Name="{x:Static resx:Strings.Automation_LogsViewRoot_Name}"
@@ -31,7 +33,7 @@
                 Focusable="True"
                 FocusVisualStyle="{x:Null}">
 
-      <TextBlock Text="{x:Static resx:Strings.Label_Level}"
+      <ui:TextBlock Text="{x:Static resx:Strings.Label_Level}"
                  VerticalAlignment="Center"
                  Margin="0,0,5,0"
                  AutomationProperties.Name="{x:Static resx:Strings.Label_Level}" />
@@ -44,7 +46,7 @@
                 AutomationProperties.AutomationId="LogsLevelComboBox"
                 AutomationProperties.HelpText="{x:Static resx:Strings.Automation_LogsLevelComboBox_HelpText}" />
 
-      <TextBlock Text="{x:Static resx:Strings.Label_From}"
+      <ui:TextBlock Text="{x:Static resx:Strings.Label_From}"
                  VerticalAlignment="Center"
                  Margin="0,0,5,0"
                  AutomationProperties.Name="{x:Static resx:Strings.Label_From}" />
@@ -57,7 +59,7 @@
                   AutomationProperties.AutomationId="LogsFromDatePicker"
                   AutomationProperties.HelpText="{x:Static resx:Strings.Automation_LogsFromDatePicker_HelpText}" />
 
-      <TextBlock Text="{x:Static resx:Strings.Label_To}"
+      <ui:TextBlock Text="{x:Static resx:Strings.Label_To}"
                  VerticalAlignment="Center"
                  Margin="0,0,5,0"
                  AutomationProperties.Name="{x:Static resx:Strings.Label_To}" />
@@ -70,12 +72,12 @@
                   AutomationProperties.AutomationId="LogsToDatePicker"
                   AutomationProperties.HelpText="{x:Static resx:Strings.Automation_LogsToDatePicker_HelpText}" />
 
-      <TextBlock Text="{x:Static resx:Strings.Label_Keyword}"
+      <ui:TextBlock Text="{x:Static resx:Strings.Label_Keyword}"
                  VerticalAlignment="Center"
                  Margin="0,0,5,0"
                  AutomationProperties.Name="{x:Static resx:Strings.Label_Keyword}" />
 
-      <TextBox Text="{Binding Keyword, UpdateSourceTrigger=PropertyChanged}"
+      <ui:TextBox Text="{Binding Keyword, UpdateSourceTrigger=PropertyChanged}"
                Width="200"
                Margin="0,0,10,0"
                VerticalContentAlignment="Center"
@@ -86,12 +88,12 @@
                AutomationProperties.Name="{x:Static resx:Strings.Automation_LogsKeywordTextBox_Name}"
                AutomationProperties.AutomationId="LogsKeywordTextBox"
                AutomationProperties.HelpText="{x:Static resx:Strings.Automation_LogsKeywordTextBox_HelpText}">
-        <TextBox.InputBindings>
+        <ui:TextBox.InputBindings>
           <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
-        </TextBox.InputBindings>
-      </TextBox>
+        </ui:TextBox.InputBindings>
+      </ui:TextBox>
 
-      <Button Content="{Binding SearchButtonText}"
+      <ui:Button Content="{Binding SearchButtonText}"
               Command="{Binding SearchCommand}"
               Width="80"
               AutomationProperties.Name="{Binding SearchButtonText}"
@@ -99,7 +101,7 @@
               AutomationProperties.HelpText="{x:Static resx:Strings.Automation_LogsSearchButton_HelpText}" />
     </StackPanel>
 
-    <DataGrid x:Name="LogsDataGrid"
+    <ui:DataGrid x:Name="LogsDataGrid"
               Grid.Row="1"
               ItemsSource="{Binding LogsView, IsAsync=True}"
               SelectedItem="{Binding SelectedLog}"
@@ -121,18 +123,18 @@
               AutomationProperties.AutomationId="LogsDataGrid"
               AutomationProperties.HelpText="{x:Static resx:Strings.Automation_LogsDataGrid_HelpText}"
               Style="{StaticResource DataGridSelectionColorsStyle}">
-      <DataGrid.RowStyle>
+      <ui:DataGrid.RowStyle>
         <Style TargetType="DataGridRow">
           <Setter Property="Height" Value="26" />
           <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter Property="Background" Value="{StaticResource RowHoverBrush}" />
+              <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
             </Trigger>
           </Style.Triggers>
         </Style>
-      </DataGrid.RowStyle>
+      </ui:DataGrid.RowStyle>
 
-      <DataGrid.Columns>
+      <ui:DataGrid.Columns>
         <DataGridTemplateColumn Header="{x:Static resx:Strings.Column_Time}"
                                 Width="180"
                                 MinWidth="180"
@@ -140,14 +142,14 @@
                                 CanUserResize="False"
                                 SortMemberPath="Time">
           <DataGridTemplateColumn.HeaderStyle>
-            <Style TargetType="DataGridColumnHeader">
+            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource BaseServicesColumnHeaderStyle}">
               <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_LogsTimeColumnHeader_Name}" />
             </Style>
           </DataGridTemplateColumn.HeaderStyle>
 
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
-              <TextBlock Text="{Binding Time}"
+              <ui:TextBlock Text="{Binding Time}"
                          VerticalAlignment="Center"
                          Margin="5,0,0,0"
                          AutomationProperties.Name="{Binding Time}"
@@ -163,7 +165,7 @@
                                 CanUserResize="False"
                                 SortMemberPath="Level">
           <DataGridTemplateColumn.HeaderStyle>
-            <Style TargetType="DataGridColumnHeader">
+            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource BaseServicesColumnHeaderStyle}">
               <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_LogsLevelColumnHeader_Name}" />
             </Style>
           </DataGridTemplateColumn.HeaderStyle>
@@ -178,7 +180,7 @@
                        Height="16"
                        Margin="0,0,5,0"
                        AutomationProperties.Name="{x:Static resx:Strings.Automation_LogsLevelIcon_Name}" />
-                <TextBlock Text="{Binding Level}"
+                <ui:TextBlock Text="{Binding Level}"
                            VerticalAlignment="Center"
                            AutomationProperties.Name="{Binding Level}" />
               </StackPanel>
@@ -193,13 +195,13 @@
                                 CanUserResize="False"
                                 SortMemberPath="EventId">
           <DataGridTemplateColumn.HeaderStyle>
-            <Style TargetType="DataGridColumnHeader">
+            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource BaseServicesColumnHeaderStyle}">
               <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_LogsEventIdColumnHeader_Name}" />
             </Style>
           </DataGridTemplateColumn.HeaderStyle>
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
-              <TextBlock Text="{Binding EventId}"
+              <ui:TextBlock Text="{Binding EventId}"
                          VerticalAlignment="Center"
                          Margin="5,0,0,0"
                          AutomationProperties.Name="{Binding EventId}"
@@ -215,14 +217,14 @@
                                 CanUserResize="False"
                                 SortMemberPath="Message">
           <DataGridTemplateColumn.HeaderStyle>
-            <Style TargetType="DataGridColumnHeader">
+            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource BaseServicesColumnHeaderStyle}">
               <Setter Property="AutomationProperties.Name" Value="{x:Static resx:Strings.Automation_LogsMessageColumnHeader_Name}" />
             </Style>
           </DataGridTemplateColumn.HeaderStyle>
 
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
-              <TextBlock Text="{Binding Message, Converter={StaticResource MessageConverter}}"
+              <ui:TextBlock Text="{Binding Message, Converter={StaticResource MessageConverter}}"
                          VerticalAlignment="Center"
                          Margin="5,0,0,0"
                          TextWrapping="NoWrap"
@@ -232,8 +234,8 @@
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
-      </DataGrid.Columns>
-    </DataGrid>
+      </ui:DataGrid.Columns>
+    </ui:DataGrid>
 
     <GridSplitter Grid.Row="2"
                   Height="5"
@@ -245,7 +247,7 @@
                   AutomationProperties.Name="{x:Static resx:Strings.Automation_LogsGridSplitter_Name}"
                   AutomationProperties.HelpText="{x:Static resx:Strings.Automation_LogsGridSplitter_HelpText}" />
 
-    <TextBox Grid.Row="3"
+    <ui:TextBox Grid.Row="3"
              Text="{Binding SelectedLogMessage}"
              Margin="0,5"
              IsReadOnly="True"
@@ -263,7 +265,7 @@
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
 
-      <TextBlock Grid.Column="0"
+      <ui:TextBlock Grid.Column="0"
                  Margin="0,5,0,0"
                  Text="{Binding FooterText}"
                  Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
@@ -273,7 +275,7 @@
                  AutomationProperties.Name="{Binding FooterText}"
                  AutomationProperties.HelpText="{x:Static resx:Strings.Automation_LogsFooterText_HelpText}" />
 
-      <TextBlock Grid.Column="2"
+      <ui:TextBlock Grid.Column="2"
                  Margin="10,3,0,0"
                  Text="{x:Static resx:Strings.Label_F5_Shortcut_Logs}"
                  Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"

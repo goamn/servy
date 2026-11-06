@@ -1,5 +1,6 @@
 using Servy.Core.Enums;
 using Servy.UI.ViewModels; // Inheriting from the centralized UI ViewModel base
+using System.Collections.ObjectModel;
 
 namespace Servy.Manager.Models
 {
@@ -20,6 +21,7 @@ namespace Servy.Manager.Models
         private bool _isPidEnabled;
         private double? _cpuUsage;
         private long? _ramUsage;
+        private double? _memoryUsagePercent;
         private string? _stdoutPath;
         private string? _stderrPath;
         private string? _activeStdoutPath;
@@ -123,6 +125,40 @@ namespace Servy.Manager.Models
         {
             get => _ramUsage;
             set => Set(ref _ramUsage, value);
+        }
+
+        /// <summary>
+        /// Gets or sets this service process tree's private memory as a percentage of physical memory.
+        /// </summary>
+        public double? MemoryUsagePercent
+        {
+            get => _memoryUsagePercent;
+            set => Set(ref _memoryUsagePercent, value);
+        }
+
+        /// <summary>
+        /// Per-device NVIDIA metrics for this service process.
+        /// </summary>
+        public ObservableCollection<GpuMetric> GpuMetrics { get; } = new();
+
+        /// <summary>
+        /// Per-volume disk-capacity metrics for the machine.
+        /// </summary>
+        public ObservableCollection<DiskMetric> DiskMetrics { get; } = new();
+
+        /// <summary>
+        /// Ensures the bindable metric collections have the dimensions selected by the detected hardware.
+        /// </summary>
+        public void ConfigureHardwareMetricDimensions(int gpuCount, int diskCount)
+        {
+            while (GpuMetrics.Count < gpuCount)
+                GpuMetrics.Add(new GpuMetric());
+
+            while (DiskMetrics.Count < diskCount)
+                DiskMetrics.Add(new DiskMetric());
+
+            OnPropertyChanged(nameof(GpuMetrics));
+            OnPropertyChanged(nameof(DiskMetrics));
         }
 
         /// <summary>

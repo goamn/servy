@@ -1,6 +1,7 @@
 <views:ServiceSearchUserControl x:Class="Servy.Manager.Views.DependenciesView"
                                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                                xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                                 xmlns:resx="clr-namespace:Servy.Manager.Resources"
@@ -9,6 +10,7 @@
                                 xmlns:core="clr-namespace:Servy.Core.Services;assembly=Servy.Core"
                                 xmlns:controls="clr-namespace:Servy.Manager.Views.Controls"
                                 mc:Ignorable="d"
+                                Background="{DynamicResource AppBackgroundBrush}"
                                 AutomationProperties.Name="{x:Static resx:Strings.Automation_DependenciesViewRoot_Name}"
                                 AutomationProperties.AutomationId="DependenciesView"
                                 AutomationProperties.HelpText="{x:Static resx:Strings.Automation_DependenciesViewRoot_HelpText}">
@@ -34,7 +36,7 @@
                                  AutomationProperties.AutomationId="DependenciesServiceList"
                                  AutomationProperties.HelpText="{x:Static resx:Strings.Automation_DependenciesServiceList_HelpText}" />
 
-    <Grid Grid.Column="1" Margin="10">
+    <Grid Grid.Column="1" Margin="12">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
@@ -61,7 +63,7 @@
                     Orientation="Horizontal"
                     Margin="0,0,6,0"
                     VerticalAlignment="Center">
-          <Button Style="{StaticResource ToolbarPillButtonStyle}"
+          <ui:Button Style="{StaticResource ToolbarPillButtonStyle}"
                   Command="{Binding RefreshCommand}"
                   Visibility="{Binding IsServiceSelected, Converter={StaticResource BoolToVisibilityConverter}}"
                   ToolTip="{x:Static resx:Strings.Tooltip_Refresh}"
@@ -70,51 +72,51 @@
                   AutomationProperties.HelpText="{x:Static resx:Strings.Automation_DependenciesRefreshButton_HelpText}">
             <StackPanel Orientation="Horizontal">
               <Path Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"
-                    Fill="White"
+                    Fill="{DynamicResource AppSurfaceBrush}"
                     Width="10"
                     Height="10"
                     Stretch="Uniform"
                     Margin="0,0,4,0"
                     VerticalAlignment="Center" />
-              <TextBlock Text="{x:Static resx:Strings.Button_Refresh}"
+              <ui:TextBlock Text="{x:Static resx:Strings.Button_Refresh}"
                          VerticalAlignment="Center" />
             </StackPanel>
-          </Button>
+          </ui:Button>
         </StackPanel>
 
         <StackPanel Grid.Column="2"
                     Orientation="Horizontal"
                     Margin="0,0,6,0"
                     VerticalAlignment="Center">
-          <Button Style="{StaticResource ToolbarPillButtonStyle}"
+          <ui:Button Style="{StaticResource ToolbarPillButtonStyle}"
                   Command="{Binding ExpandAllCommand}"
                   Visibility="{Binding IsServiceSelected, Converter={StaticResource BoolToVisibilityConverter}}"
                   ToolTip="{x:Static resx:Strings.Tooltip_ExpandAll}"
                   AutomationProperties.Name="{x:Static resx:Strings.Button_ExpandAll}"
                   AutomationProperties.AutomationId="ExpandAllButton"
                   AutomationProperties.HelpText="{x:Static resx:Strings.Automation_DependenciesExpandAllButton_HelpText}">
-            <TextBlock Text="{x:Static resx:Strings.Button_ExpandAll}"
+            <ui:TextBlock Text="{x:Static resx:Strings.Button_ExpandAll}"
                        VerticalAlignment="Center" />
-          </Button>
+          </ui:Button>
         </StackPanel>
 
         <StackPanel Grid.Column="3"
                     Orientation="Horizontal"
                     Margin="0,0,6,0"
                     VerticalAlignment="Center">
-          <Button Style="{StaticResource ToolbarPillButtonStyle}"
+          <ui:Button Style="{StaticResource ToolbarPillButtonStyle}"
                   Command="{Binding CollapseAllCommand}"
                   Visibility="{Binding IsServiceSelected, Converter={StaticResource BoolToVisibilityConverter}}"
                   ToolTip="{x:Static resx:Strings.Tooltip_CollapseAll}"
                   AutomationProperties.Name="{x:Static resx:Strings.Button_CollapseAll}"
                   AutomationProperties.AutomationId="CollapseAllButton"
                   AutomationProperties.HelpText="{x:Static resx:Strings.Automation_DependenciesCollapseAllButton_HelpText}">
-            <TextBlock Text="{x:Static resx:Strings.Button_CollapseAll}"
+            <ui:TextBlock Text="{x:Static resx:Strings.Button_CollapseAll}"
                        VerticalAlignment="Center" />
-          </Button>
+          </ui:Button>
         </StackPanel>
 
-        <TextBlock Grid.Column="4"
+        <ui:TextBlock Grid.Column="4"
                    Text="{x:Static resx:Strings.Dependencies_Info}"
                    FontSize="11"
                    Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
@@ -132,9 +134,9 @@
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0"
-                BorderBrush="#A0A0A0"
+                BorderBrush="{DynamicResource AppBorderBrush}"
                 BorderThickness="1"
-                Background="White">
+                Background="{DynamicResource AppSurfaceBrush}">
           <TreeView ItemsSource="{Binding DependencyTree}"
                     BorderThickness="0"
                     Background="Transparent"
@@ -225,11 +227,11 @@
                   </Path>
 
                   <!-- Node Main Text -->
-                  <TextBlock Text="{Binding DisplayName}"
+                  <ui:TextBlock Text="{Binding DisplayName}"
                              VerticalAlignment="Center">
-                    <TextBlock.Style>
+                    <ui:TextBlock.Style>
                       <Style TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="Black" />
+                        <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
                         <Style.Triggers>
                           <DataTrigger Binding="{Binding IsRunning}" Value="True">
                             <Setter Property="ToolTip" Value="{x:Static resx:Strings.Tooltip_ServiceRunning}" />
@@ -253,14 +255,14 @@
                           </DataTrigger>
                         </Style.Triggers>
                       </Style>
-                    </TextBlock.Style>
-                  </TextBlock>
+                    </ui:TextBlock.Style>
+                  </ui:TextBlock>
 
                   <!-- Secondary Service Name Text -->
                   <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="2,0,0,0">
                     <StackPanel.Resources>
                       <Style TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="#6D6D6D" />
+                        <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
                         <Style.Triggers>
                           <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TreeViewItem}}" Value="True">
                             <Setter Property="Foreground" Value="White" />
@@ -292,9 +294,9 @@
                         </Style.Triggers>
                       </Style>
                     </StackPanel.Resources>
-                    <TextBlock Text=" (" />
-                    <TextBlock Text="{Binding ServiceName}" />
-                    <TextBlock Text=")" />
+                    <ui:TextBlock Text=" (" />
+                    <ui:TextBlock Text="{Binding ServiceName}" />
+                    <ui:TextBlock Text=")" />
                   </StackPanel>
                 </StackPanel>
               </HierarchicalDataTemplate>
@@ -318,7 +320,7 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
 
-          <TextBlock Grid.Column="1"
+          <ui:TextBlock Grid.Column="1"
                      Margin="10,3,0,0"
                      Text="{x:Static resx:Strings.Label_Dependencies_Gear_Info}"
                      Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
@@ -326,7 +328,7 @@
                      AutomationProperties.Name="{x:Static resx:Strings.Automation_DependenciesUsageInfo_Name}"
                      AutomationProperties.HelpText="{x:Static resx:Strings.Automation_DependenciesUsageInfo_HelpText}" />
 
-          <TextBlock Grid.Column="2"
+          <ui:TextBlock Grid.Column="2"
                      Margin="10,3,0,0"
                      Text="{x:Static resx:Strings.Label_F5_Shortcut_Dependencies}"
                      Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"

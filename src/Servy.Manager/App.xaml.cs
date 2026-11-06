@@ -20,6 +20,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using Wpf.Ui.Appearance;
+using Wpf.Ui.Controls;
 using AppConfig = Servy.Core.Config.AppConfig;
 
 namespace Servy.Manager
@@ -167,6 +169,7 @@ namespace Servy.Manager
             services.AddSingleton<IUiDispatcher, WpfUiDispatcher>();
             services.AddSingleton<IProcessHelper, ProcessHelper>();
             services.AddSingleton<IProcessKiller, ProcessKiller>();
+            services.AddSingleton<IHardwareMetricsProvider, HardwareMetricsProvider>();
 
             Services = services.BuildServiceProvider();
 
@@ -187,6 +190,7 @@ namespace Servy.Manager
                     // 0. Retrieve DI-managed services
                     var processHelper = Services.GetRequiredService<IProcessHelper>();
                     var processKiller = Services.GetRequiredService<IProcessKiller>();
+                    var hardwareMetricsProvider = Services.GetRequiredService<IHardwareMetricsProvider>();
 
                     // 1. Initialize Infrastructure & Services
                     Func<string, IServiceControllerWrapper> controllerFactory = name => new ServiceControllerWrapper(name);
@@ -242,12 +246,15 @@ namespace Servy.Manager
                         new LogsViewModel(this, eventLogService, cursorService, messageBoxService),
                         this,
                         cursorService,
-                        processHelper
+                        processHelper,
+                        hardwareMetricsProvider: hardwareMetricsProvider
                     );
 
                     // 3. Inject Dependencies into the View
+                    Logger.Info("Manager dependencies created; constructing the main window.");
                     var main = new MainWindow(viewModel, messageBoxService, processKiller);
                     main.Show();
+                    Logger.Info("Manager main window shown successfully.");
 
                     return Task.FromResult<Window>(main);
                 },
@@ -348,6 +355,25 @@ namespace Servy.Manager
             if (Services == null)
             {
                 throw new InvalidOperationException("Service provider is not initialized.");
+            }
+
+            // Resolve the saved preference before the bootstrapper creates its splash
+            // window, so every window starts with the same palette as the main shell.
+            try
+            {
+                var preference = new ThemePreferenceStore().Preference;
+                if (preference == ThemePreference.System)
+                    SystemThemeManager.UpdateSystemThemeCache();
+
+                var theme = ThemePalette.Resolve(preference);
+                ApplicationThemeManager.Apply(theme, WindowBackdropType.None, updateAccent: true);
+                ThemePalette.Apply(this, theme);
+            }
+            catch (Exception ex)
+            {
+                // Theme detection is best-effort; WPF-UI's declared Light resources remain
+                // available if the Windows theme APIs are unavailable.
+                System.Diagnostics.Debug.WriteLine($"Could not initialize the manager theme: {ex}");
             }
 
             // 1. Run base bootstrapper startup (initializes configuration and logger)

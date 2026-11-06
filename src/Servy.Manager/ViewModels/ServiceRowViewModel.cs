@@ -6,6 +6,7 @@ using Servy.UI.Commands;
 using Servy.UI.Services;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Collections.ObjectModel;
 
 namespace Servy.Manager.ViewModels
 {
@@ -161,6 +162,21 @@ namespace Servy.Manager.ViewModels
         /// Gets the RAM usage in bytes for the service process, or <see langword="null"/> when monitoring is inactive or process is stopped.
         /// </summary>
         public long? RamUsage => Service.RamUsage;
+
+        /// <summary>
+        /// Gets the service process tree memory usage as a percentage of physical memory.
+        /// </summary>
+        public double? MemoryUsagePercent => Service.MemoryUsagePercent;
+
+        /// <summary>
+        /// Gets per-GPU metrics captured for this service process.
+        /// </summary>
+        public ObservableCollection<GpuMetric> GpuMetrics => Service.GpuMetrics;
+
+        /// <summary>
+        /// Gets per-volume disk metrics captured for the machine.
+        /// </summary>
+        public ObservableCollection<DiskMetric> DiskMetrics => Service.DiskMetrics;
 
         #endregion
 
